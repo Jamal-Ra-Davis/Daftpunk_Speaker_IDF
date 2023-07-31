@@ -6,6 +6,7 @@
 #include "esp_log.h"
 
 #include "Events.h"
+#include "Buttons.h"
 
 // SCL: 19, SDA: 21
 
@@ -84,6 +85,7 @@ void app_main(void)
         init_success = false;
     }
 
+    // Register event callback functions
     ret |= register_event_callback(VOL_P_SHORT_PRESS, volume_increase_cb, NULL);
     ret |= register_event_callback(VOL_M_SHORT_PRESS, volume_decrease_cb, NULL);
     ret |= register_event_callback(PAIR_SHORT_PRESS, select_action, NULL);
@@ -91,9 +93,11 @@ void app_main(void)
     ret |= register_event_callback(CHARGE_START, charge_start_action, NULL);
     ret |= register_event_callback(CHARGE_STOP, charge_stop_action, NULL);
 
-    // Register event callback functions
-
     // Init button manager
+    if (init_buttons() < 0) {
+        ESP_LOGE(MAIN_TAG, "Failed to init button manager");
+        init_success = false;
+    }
 
     // Init RGBW LED manager
 
@@ -116,8 +120,6 @@ void app_main(void)
     int cnt = 0;
     while (1) {
         printf("Hello world %d!\n", ++cnt);
-
-        push_event((system_event_t)(cnt % NUM_EVENTS), false);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
