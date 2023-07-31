@@ -8,7 +8,7 @@
 #include "Events.h"
 #include "Buttons.h"
 #include "FrameBuffer.h"
-
+#include "sr_driver.h"
 // SCL: 19, SDA: 21
 
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
@@ -77,6 +77,7 @@ void app_main(void)
     */
 
     // Init Display task
+    init_shift_registers();
 
     // Init Logger (Probably not needed now)
 
@@ -120,9 +121,15 @@ void app_main(void)
 
     // Init Bluetooth Audio and register reader callback
 
+    uint8_t sr_buffer[6] = {0x01, 0xAA, 0xF0, 0x55, 0x0F, 0x80};
+    uint8_t row_idx = 0;
     int cnt = 0;
     while (1) {
         printf("Hello world %d!\n", ++cnt);
+
+        sr_buffer[0] = (1 << row_idx);
+        sr_write(sr_buffer, sizeof(sr_buffer));
+        row_idx = (row_idx + 1) % 8;
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
