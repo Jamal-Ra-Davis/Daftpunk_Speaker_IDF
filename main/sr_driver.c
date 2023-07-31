@@ -50,7 +50,7 @@ void init_shift_registers()
       .tx_buffer = (void *)CLEAR_DATA,
   };
 
-  ret = spi_device_queue_trans(handle, &spi_transaction, portMAX_DELAY);
+  ret = spi_device_transmit(handle, &spi_transaction);
   ESP_ERROR_CHECK(ret);
 }
 
@@ -60,7 +60,7 @@ void sr_write(uint8_t *data, int N)
       .length = N * 8,
       .tx_buffer = (void *)data,
   };
-  spi_device_queue_trans(handle, &spi_transaction, portMAX_DELAY);
+  spi_device_transmit(handle, &spi_transaction);
 }
 
 void sr_write_byte(uint8_t val)

@@ -9,6 +9,7 @@
 #include "Buttons.h"
 #include "FrameBuffer.h"
 #include "sr_driver.h"
+#include "Display_task.h"
 // SCL: 19, SDA: 21
 
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
@@ -77,7 +78,10 @@ void app_main(void)
     */
 
     // Init Display task
-    init_shift_registers();
+    if (init_display_task() < 0) {
+        ESP_LOGE(MAIN_TAG, "Failed to init display task");
+        init_success = false;
+    }
 
     // Init Logger (Probably not needed now)
 
@@ -105,6 +109,9 @@ void app_main(void)
 
     // Display countdown timer
     buffer_reset(&double_buffer);
+    for (int i=0; i<8; i++) {
+        buffer_set_pixel(&double_buffer, i, i);
+    }
     buffer_update(&double_buffer);
 
     // Display boot text
@@ -121,15 +128,9 @@ void app_main(void)
 
     // Init Bluetooth Audio and register reader callback
 
-    uint8_t sr_buffer[6] = {0x01, 0xAA, 0xF0, 0x55, 0x0F, 0x80};
-    uint8_t row_idx = 0;
     int cnt = 0;
     while (1) {
         printf("Hello world %d!\n", ++cnt);
-
-        sr_buffer[0] = (1 << row_idx);
-        sr_write(sr_buffer, sizeof(sr_buffer));
-        row_idx = (row_idx + 1) % 8;
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
