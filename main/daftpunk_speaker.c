@@ -7,6 +7,7 @@
 
 #include "Events.h"
 #include "Buttons.h"
+#include "FrameBuffer.h"
 
 // SCL: 19, SDA: 21
 
@@ -102,6 +103,8 @@ void app_main(void)
     // Init RGBW LED manager
 
     // Display countdown timer
+    buffer_reset(&double_buffer);
+    buffer_update(&double_buffer);
 
     // Display boot text
 
