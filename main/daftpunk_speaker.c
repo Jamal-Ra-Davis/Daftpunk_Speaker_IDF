@@ -10,22 +10,61 @@
 #include "FrameBuffer.h"
 #include "sr_driver.h"
 #include "Display_task.h"
+#include "FFT_task.h"
 // SCL: 19, SDA: 21
 
+
+/*
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "esp_system.h"
+#include "esp_log.h"
+
+#include "esp_bt.h"
+#include "bt_app_core.h"
+#include "bt_app_av.h"
+#include "esp_bt_main.h"
+#include "esp_bt_device.h"
+#include "esp_gap_bt_api.h"
+#include "esp_a2dp_api.h"
+#include "esp_avrc_api.h"
+#include "driver/i2s.h"
+*/
+#include "bt_audio.h"
+
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
+
 
 
 
 // TODO: Move volume callbacks to Volume module (may want to rethink how it interacts with Bluetooth audio library)
 void volume_increase_cb(void *ctx)
 {
-    ESP_LOGI(MAIN_TAG, "Volume Increase Pressed");
+    ESP_LOGI(MAIN_TAG, "Volume Increase Pressed:");
     //volume_inc();
+    int vol = (int)bt_audio_get_volume();
+    vol += 7;
+    if (vol > 127) {
+        vol = 127;
+    }
+    bt_audio_set_volume((uint8_t)vol);
 }
 void volume_decrease_cb(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "Volume Decrease Pressed");
     //volume_dec();
+    int vol = (int)bt_audio_get_volume();
+    vol -= 7;
+    if (vol < 0) {
+        vol = 0;
+    }
+    bt_audio_set_volume((uint8_t)vol);
 }
 static void select_action(void *ctx)
 {
@@ -119,6 +158,10 @@ void app_main(void)
     // Perfor I2C bus scan
 
     // Init FFT Task
+    if (init_fft_task() < 0) {
+    ESP_LOGE(MAIN_TAG, "Failed to init FFT Task");
+        init_success = false;
+    }
 
     // Init fuel gague driver
 
@@ -127,6 +170,8 @@ void app_main(void)
     // Init timer thread manager and register timer threads
 
     // Init Bluetooth Audio and register reader callback
+    bt_audio_register_data_cb(read_data_stream);
+    bt_audio_init();
 
     int cnt = 0;
     while (1) {
