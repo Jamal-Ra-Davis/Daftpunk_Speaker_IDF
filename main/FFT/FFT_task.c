@@ -5,6 +5,7 @@
 #include "global_defines.h"
 #include "FrameBuffer.h"
 #include "esp_log.h"
+#include "system_states.h"
 
 #include <math.h>
 #include <string.h>
@@ -49,8 +50,7 @@ static float fft_input[FFT_N];
 static struct fft_double_buffer fft_buf;
 static fft_config_t *real_fft_plan;
 static TaskHandle_t xfft_task = NULL;
-// TOOD: Reimplement idle state
-// extern bool idle;
+extern system_state_t current_state;
 TimerHandle_t idle_timer;
 static fft_display_type_t fft_display = FFT_LOG;
 static uint32_t log_base_value = 20000;
@@ -281,8 +281,9 @@ void process_fft()
     }
     */
 
-    // TOOD: Reimplement idle state
-    // idle = false;
+    if (current_state != STREAMING_STATE) {
+        current_state = STREAMING_STATE;
+    }
     switch (fft_display)
     {
     case FFT_LINEAR:
@@ -335,6 +336,7 @@ void update_freq_array(float *freq_data, int N, float freq, float mag)
 
 static void idle_timer_func(TimerHandle_t xTimer)
 {
-    // TOOD: Reimplement idle state
-    // idle = true;
+    if (current_state == STREAMING_STATE) {
+        current_state = IDLE_STATE;
+    }
 }

@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/timers.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "global_defines.h"
 
 #include "Events.h"
 #include "Buttons.h"
@@ -11,6 +13,8 @@
 #include "sr_driver.h"
 #include "Display_task.h"
 #include "FFT_task.h"
+#include "Font.h"
+#include "system_states.h"
 // SCL: 19, SDA: 21
 
 
@@ -40,8 +44,8 @@
 
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
 
-
-
+system_state_t current_state = IDLE_STATE;
+system_state_t prev_state = BOOT_STATE;
 
 // TODO: Move volume callbacks to Volume module (may want to rethink how it interacts with Bluetooth audio library)
 void volume_increase_cb(void *ctx)
@@ -73,6 +77,9 @@ static void select_action(void *ctx)
   //a2dp_sink.start("DevBoard_v0");
   //volume_init();
   //a2dp_sink.set_stream_reader(read_data_stream);
+  if (current_state == SLEEP_STATE) {
+    current_state = IDLE_STATE;
+  }
 }
 
 static volatile bool pair_press = false;
@@ -94,6 +101,11 @@ static void charge_stop_action(void *ctx)
   ESP_LOGI(MAIN_TAG, "Charging stopped");
   //oneshot_blink(10, 100, 128, 16, 16);
 }
+static void sleep_timer_func(TimerHandle_t xTimer)
+{
+    current_state = SLEEP_STATE;
+}
+
 
 void app_main(void)
 {
@@ -147,13 +159,29 @@ void app_main(void)
     // Init RGBW LED manager
 
     // Display countdown timer
+    /*
     buffer_reset(&double_buffer);
     for (int i=0; i<8; i++) {
         buffer_set_pixel(&double_buffer, i, i);
     }
     buffer_update(&double_buffer);
+    */
+
+    for (int i=10; i >= 0; i--) {
+        buffer_clear(&double_buffer);
+        draw_int(i, 30, 2, &double_buffer);
+        buffer_update(&double_buffer);
+        vTaskDelay(250 / portTICK_PERIOD_MS);
+    }
 
     // Display boot text
+    int test_str_len = get_str_width("DEVBOARD_V0");
+    for (int i=FRAME_BUF_COLS; i >= -test_str_len; i--) {
+        buffer_clear(&double_buffer);
+        draw_str("DEVBOARD_V0", i, 2, &double_buffer);
+        buffer_update(&double_buffer);
+        vTaskDelay(20 / portTICK_PERIOD_MS);
+    }
 
     // Perfor I2C bus scan
 
@@ -173,9 +201,55 @@ void app_main(void)
     bt_audio_register_data_cb(read_data_stream);
     bt_audio_init();
 
+    TimerHandle_t sleep_timer = xTimerCreate("Sleep_Timer", MS_TO_TICKS(15000), pdFALSE, NULL, sleep_timer_func);
+    
+
     int cnt = 0;
+    char idle_str[32] = {'\0'};
     while (1) {
-        printf("Hello world %d!\n", ++cnt);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        //printf("Hello world %d!\n", ++cnt);
+
+
+        bool on_enter = false;
+        if (current_state != prev_state) {
+            on_enter = true;
+            prev_state = current_state;
+        }
+
+        switch (current_state) {
+            case IDLE_STATE:
+                if (on_enter) {
+                    ESP_LOGI(MAIN_TAG, "Entering IDLE_STATE");
+                    if (xTimerStart(sleep_timer, 0) != pdPASS)
+                    {
+                        ESP_LOGE(MAIN_TAG, "Failed to start sleep timer");
+                    }
+                }
+                buffer_clear(&double_buffer);
+                snprintf(idle_str, sizeof(idle_str), "CNT:%d", (cnt++) / 10);
+                draw_str(idle_str, 0, 2, &double_buffer);
+                buffer_update(&double_buffer);
+                break;
+            case STREAMING_STATE:
+                if (on_enter) {
+                    ESP_LOGI(MAIN_TAG, "Entering STREAMING_STATE");
+                    if (xTimerStop(sleep_timer, 0) != pdPASS)
+                    {
+                        ESP_LOGE(MAIN_TAG, "Failed to stop sleep timer");
+                    }
+                }
+                break;
+            case SLEEP_STATE:
+                if (on_enter) {
+                    ESP_LOGI(MAIN_TAG, "Entering SLEEP_STATE");
+                    buffer_clear(&double_buffer);
+                    buffer_update(&double_buffer);
+                }
+                break;
+            default:
+                break;
+        }
+
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
