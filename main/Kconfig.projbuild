@@ -40,3 +40,10 @@ menu "A2DP Example Configuration"
             GPIO number to use for I2S Data Driver.
 
 endmenu
+menu "MAX17048 Config"
+    config MAX17048_ALERT_GPIO
+        int "Alert GPIO"
+        default 33
+        help
+            Set the GPIO number used for the Alert pin
+endmenu

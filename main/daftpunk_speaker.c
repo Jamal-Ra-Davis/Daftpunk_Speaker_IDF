@@ -1,12 +1,16 @@
 #include <stdio.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
+#include "driver/rmt.h"
+#include "driver/i2c.h"
+#include "led_strip.h"
 #include "esp_log.h"
-#include "global_defines.h"
 
+#include "global_defines.h"
 #include "Events.h"
 #include "Buttons.h"
 #include "FrameBuffer.h"
@@ -16,8 +20,35 @@
 #include "Font.h"
 #include "system_states.h"
 #include "bt_audio.h"
+#include "MAX17048.h"
 
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
+#define RMT_TX_CHANNEL RMT_CHANNEL_0
+
+#define I2C_MASTER_SCL_IO I2C_SCL_PIN /*!< GPIO number used for I2C master clock */
+#define I2C_MASTER_SDA_IO I2C_SDA_PIN /*!< GPIO number used for I2C master data  */
+#define I2C_MASTER_NUM 0              /*!< I2C master i2c port number, the number of i2c peripheral interfaces available will depend on the chip */
+#define I2C_MASTER_FREQ_HZ 400000     /*!< I2C master clock frequency */
+#define I2C_MASTER_TX_BUF_DISABLE 0   /*!< I2C master doesn't need buffer */
+#define I2C_MASTER_RX_BUF_DISABLE 0   /*!< I2C master doesn't need buffer */
+#define I2C_MASTER_TIMEOUT_MS 1000
+
+#define MAXLIPO_DEV_ADDR 0x36
+typedef enum
+{
+    MAX17048_VCELL_REG = 0x02,
+    MAX17048_SOC_REG = 0x04,
+    MAX17048_MODE_REG = 0x06,
+    MAX17048_VERSION_REG = 0x08,
+    MAX17048_HIBRT_REG = 0x0A,
+    MAX17048_CONFIG_REG = 0x0C,
+    MAX17048_VALRT_REG = 0x14,
+    MAX17048_CRATE_REG = 0x16,
+    MAX17048_VRESET_ID_REG = 0x18,
+    MAX17048_STATUS_REG = 0x1A,
+    MAX17048_TABLE_START_REG = 0x40,
+    MAX17048_CMD_REG = 0xFE,
+} MAX17048_register_t;
 
 system_state_t current_state = IDLE_STATE;
 system_state_t prev_state = BOOT_STATE;
@@ -26,10 +57,11 @@ system_state_t prev_state = BOOT_STATE;
 void volume_increase_cb(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "Volume Increase Pressed:");
-    //volume_inc();
+    // volume_inc();
     int vol = (int)bt_audio_get_volume();
     vol += 7;
-    if (vol > 127) {
+    if (vol > 127)
+    {
         vol = 127;
     }
     bt_audio_set_volume((uint8_t)vol);
@@ -37,59 +69,163 @@ void volume_increase_cb(void *ctx)
 void volume_decrease_cb(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "Volume Decrease Pressed");
-    //volume_dec();
+    // volume_dec();
     int vol = (int)bt_audio_get_volume();
     vol -= 7;
-    if (vol < 0) {
+    if (vol < 0)
+    {
         vol = 0;
     }
     bt_audio_set_volume((uint8_t)vol);
 }
 static void select_action(void *ctx)
 {
-  ESP_LOGI(MAIN_TAG, "Select button pressed - Create a2dp sink");
-  ESP_LOGI(MAIN_TAG, "Creating a2dp sink...");
-  //a2dp_sink.start("DevBoard_v0");
-  //volume_init();
-  //a2dp_sink.set_stream_reader(read_data_stream);
-  if (current_state == SLEEP_STATE) {
-    current_state = IDLE_STATE;
-  }
+    ESP_LOGI(MAIN_TAG, "Select button pressed - Create a2dp sink");
+    ESP_LOGI(MAIN_TAG, "Creating a2dp sink...");
+    // a2dp_sink.start("DevBoard_v0");
+    // volume_init();
+    // a2dp_sink.set_stream_reader(read_data_stream);
+    if (current_state == SLEEP_STATE)
+    {
+        current_state = IDLE_STATE;
+    }
 }
 
 static volatile bool pair_press = false;
 static void pair_action(void *ctx)
 {
-  pair_press = true;
-  ESP_LOGI(MAIN_TAG, "Pair Button Pressed - Destroy a2dp sink");
-  ESP_LOGI(MAIN_TAG, "Destroying a2dp sink...");
-  //a2dp_sink.end(true);
+    pair_press = true;
+    ESP_LOGI(MAIN_TAG, "Pair Button Pressed - Destroy a2dp sink");
+    ESP_LOGI(MAIN_TAG, "Destroying a2dp sink...");
+    // a2dp_sink.end(true);
 }
 
 static void charge_start_action(void *ctx)
 {
-  ESP_LOGI(MAIN_TAG, "Charging started");
-  //oneshot_blink(10, 100, 0, 128, 32);
+    ESP_LOGI(MAIN_TAG, "Charging started");
+    // oneshot_blink(10, 100, 0, 128, 32);
 }
 static void charge_stop_action(void *ctx)
 {
-  ESP_LOGI(MAIN_TAG, "Charging stopped");
-  //oneshot_blink(10, 100, 128, 16, 16);
+    ESP_LOGI(MAIN_TAG, "Charging stopped");
+    // oneshot_blink(10, 100, 128, 16, 16);
 }
 static void sleep_timer_func(TimerHandle_t xTimer)
 {
     current_state = SLEEP_STATE;
 }
 
+static esp_err_t i2c_master_init(void)
+{
+    int i2c_master_port = I2C_MASTER_NUM;
+
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = I2C_MASTER_SDA_IO,
+        .scl_io_num = I2C_MASTER_SCL_IO,
+        //.sda_pullup_en = GPIO_PULLUP_ENABLE,
+        //.scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .master.clk_speed = I2C_MASTER_FREQ_HZ,
+    };
+
+    i2c_param_config(i2c_master_port, &conf);
+
+    return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+}
+/*
+static esp_err_t max17048_register_read(uint8_t reg_addr, uint8_t *data, size_t len)
+{
+    return i2c_master_write_read_device(I2C_MASTER_NUM, MAXLIPO_DEV_ADDR, &reg_addr, 1, data, len, I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
+}
+static esp_err_t max17048_register_write_byte(uint8_t reg_addr, uint8_t data)
+{
+    int ret;
+    uint8_t write_buf[2] = {reg_addr, data};
+
+    ret = i2c_master_write_to_device(I2C_MASTER_NUM, MAXLIPO_DEV_ADDR, write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
+
+    return ret;
+}
+static esp_err_t max17048_register_write(uint8_t reg_addr, uint8_t *data, size_t len)
+{
+    int ret;
+    uint8_t write_buf[33];
+    
+    if (data == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (len > sizeof(write_buf) - 1)
+    {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    memcpy(&write_buf[1], data, len);
+
+    ret = i2c_master_write_to_device(I2C_MASTER_NUM, MAXLIPO_DEV_ADDR, write_buf, len + 1, I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
+
+    return ret;
+}
+static uint16_t endian_swap_16bit(uint16_t data)
+{
+    uint8_t *raw = (uint8_t *)&data;
+    uint16_t ret = (raw[0] << 8) | raw[1];
+    return ret;
+}
+static esp_err_t max17048_get_version(uint16_t *version)
+{
+    esp_err_t ret = ESP_OK;
+    uint16_t version_raw;
+    ret = max17048_register_read(MAX17048_VERSION_REG, &version_raw, sizeof(uint16_t));
+    if (ret != ESP_OK)
+    {
+        return ret;
+    }
+    *version = endian_swap_16bit(version_raw);
+    return ret;
+}
+static esp_err_t max17048_get_soc(uint8_t *soc)
+{
+    return max17048_register_read(MAX17048_SOC_REG, soc, sizeof(uint8_t));
+}
+static esp_err_t max17048_get_voltage(float *voltage)
+{
+    static const VOLTAGE_SCALE = 0.000078125;
+    esp_err_t ret = ESP_OK;
+    uint16_t voltage_raw;
+    ret = max17048_register_read(MAX17048_VERSION_REG, &version_raw, sizeof(uint16_t));
+    if (ret != ESP_OK)
+    {
+        return ret;
+    }
+    *voltage = (float)(VOLTAGE_SCALE * endian_swap_16bit(voltage_raw));
+    return ret;
+}
+*/
+
+void soc_change_cb(void *ctx)
+{
+    uint8_t soc;
+    if (max17048_get_soc(&soc) == ESP_OK)
+    {
+        ESP_LOGE(MAIN_TAG, "SOC Changed! Battery SOC: %u%%", soc);
+    }
+    else 
+    {
+        ESP_LOGE(MAIN_TAG, "Failed to read SOC");
+    }
+}
 
 void app_main(void)
 {
+    esp_err_t esp_ret;
     bool init_success = true;
     int ret = 0;
     // Setup I2C (Can probably handle in driver)
     /*
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
     */
+    esp_ret = i2c_master_init();
+    ESP_ERROR_CHECK(esp_ret);
 
     // Setup GPIOs
     /*
@@ -104,7 +240,8 @@ void app_main(void)
     */
 
     // Init Display task
-    if (init_display_task() < 0) {
+    if (init_display_task() < 0)
+    {
         ESP_LOGE(MAIN_TAG, "Failed to init display task");
         init_success = false;
     }
@@ -112,7 +249,8 @@ void app_main(void)
     // Init Logger (Probably not needed now)
 
     // Init event manager
-    if (init_event_manager() < 0) {
+    if (init_event_manager() < 0)
+    {
         ESP_LOGE(MAIN_TAG, "Failed to init event manager");
         init_success = false;
     }
@@ -126,12 +264,50 @@ void app_main(void)
     ret |= register_event_callback(CHARGE_STOP, charge_stop_action, NULL);
 
     // Init button manager
-    if (init_buttons() < 0) {
+    if (init_buttons() < 0)
+    {
         ESP_LOGE(MAIN_TAG, "Failed to init button manager");
         init_success = false;
     }
 
     // Init RGBW LED manager
+    gpio_config_t gp_cfg = {
+        .pin_bit_mask = GPIO_SEL_17,
+        .mode = GPIO_MODE_OUTPUT,
+    };
+    esp_ret = gpio_config(&gp_cfg);
+    ESP_ERROR_CHECK(esp_ret);
+
+    esp_ret = gpio_set_level(GPIO_NUM_17, 1);
+    ESP_ERROR_CHECK(ret);
+
+    rmt_config_t config = RMT_DEFAULT_CONFIG_TX(RGB_LED_DATA, RMT_TX_CHANNEL);
+    // set counter clock to 40MHz
+    config.clk_div = 2;
+
+    ESP_ERROR_CHECK(rmt_config(&config));
+    ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
+
+    // install ws2812 driver
+    led_strip_config_t strip_config = LED_STRIP_DEFAULT_CONFIG(1, (led_strip_dev_t)config.channel);
+    led_strip_t *strip = led_strip_new_rmt_ws2812(&strip_config);
+    if (!strip)
+    {
+        ESP_LOGE(MAIN_TAG, "install WS2812 driver failed");
+        init_success = false;
+    }
+    strip->clear(strip, 100);
+
+    for (int i = 0; i < 5; i++)
+    {
+        strip->set_pixel(strip, 0, 0, 128, 255);
+        strip->refresh(strip, 100);
+        vTaskDelay(pdMS_TO_TICKS(100));
+
+        strip->set_pixel(strip, 0, 0, 0, 0);
+        strip->refresh(strip, 100);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
 
     // Display countdown timer
     /*
@@ -142,7 +318,8 @@ void app_main(void)
     buffer_update(&double_buffer);
     */
 
-    for (int i=10; i >= 0; i--) {
+    for (int i = 10; i >= 0; i--)
+    {
         buffer_clear(&double_buffer);
         draw_int(i, 30, 2, &double_buffer);
         buffer_update(&double_buffer);
@@ -151,7 +328,8 @@ void app_main(void)
 
     // Display boot text
     int test_str_len = get_str_width("DEVBOARD_V0");
-    for (int i=FRAME_BUF_COLS; i >= -test_str_len; i--) {
+    for (int i = FRAME_BUF_COLS; i >= -test_str_len; i--)
+    {
         buffer_clear(&double_buffer);
         draw_str("DEVBOARD_V0", i, 2, &double_buffer);
         buffer_update(&double_buffer);
@@ -161,12 +339,46 @@ void app_main(void)
     // Perfor I2C bus scan
 
     // Init FFT Task
-    if (init_fft_task() < 0) {
-    ESP_LOGE(MAIN_TAG, "Failed to init FFT Task");
+    if (init_fft_task() < 0)
+    {
+        ESP_LOGE(MAIN_TAG, "Failed to init FFT Task");
         init_success = false;
     }
 
     // Init fuel gague driver
+    esp_ret = max17048_init();
+    ESP_ERROR_CHECK(esp_ret);
+
+    esp_ret = max17048_register_alert_cb(MAX17048_ALERT_SOC_CHANGE, soc_change_cb, NULL);
+    ESP_ERROR_CHECK(esp_ret);
+
+    esp_ret = max17048_enable_soc_change_alert(true);
+    ESP_ERROR_CHECK(esp_ret);
+
+    uint16_t max17048_version;
+    esp_ret = max17048_get_version(&max17048_version);
+    ESP_ERROR_CHECK(esp_ret);
+    ESP_LOGI(MAIN_TAG, "max17048_version = 0x%04X", max17048_version);
+
+    float voltage;
+    esp_ret = max17048_get_voltage(&voltage);
+    ESP_ERROR_CHECK(esp_ret);
+    ESP_LOGI(MAIN_TAG, "max17048_voltage = %fV", voltage);
+
+    uint8_t soc_;
+    esp_ret = max17048_get_soc(&soc_);
+    ESP_ERROR_CHECK(esp_ret);
+    ESP_LOGI(MAIN_TAG, "max17048_soc = %d%%", soc_);
+
+    float c_rate;
+    esp_ret = max17048_get_c_rate(&c_rate);
+    ESP_ERROR_CHECK(esp_ret);
+    ESP_LOGI(MAIN_TAG, "max17048_c_rate = %f%%/hr", c_rate);
+    
+    uint8_t max17048_id;
+    esp_ret = max17048_get_id(&max17048_id);
+    ESP_ERROR_CHECK(esp_ret);
+    ESP_LOGI(MAIN_TAG, "max17048_id = 0x%02X", max17048_id);
 
     // Init CLI task
 
@@ -177,52 +389,64 @@ void app_main(void)
     bt_audio_init();
 
     TimerHandle_t sleep_timer = xTimerCreate("Sleep_Timer", MS_TO_TICKS(15000), pdFALSE, NULL, sleep_timer_func);
-    
 
     int cnt = 0;
     char idle_str[32] = {'\0'};
-    while (1) {
-        //printf("Hello world %d!\n", ++cnt);
-
+    while (1)
+    {
+        // printf("Hello world %d!\n", ++cnt);
 
         bool on_enter = false;
-        if (current_state != prev_state) {
+        if (current_state != prev_state)
+        {
             on_enter = true;
             prev_state = current_state;
         }
 
-        switch (current_state) {
-            case IDLE_STATE:
-                if (on_enter) {
-                    ESP_LOGI(MAIN_TAG, "Entering IDLE_STATE");
-                    if (xTimerStart(sleep_timer, 0) != pdPASS)
-                    {
-                        ESP_LOGE(MAIN_TAG, "Failed to start sleep timer");
-                    }
+        switch (current_state)
+        {
+        case IDLE_STATE:
+            if (on_enter)
+            {
+                ESP_LOGI(MAIN_TAG, "Entering IDLE_STATE");
+                if (xTimerStart(sleep_timer, 0) != pdPASS)
+                {
+                    ESP_LOGE(MAIN_TAG, "Failed to start sleep timer");
                 }
+            }
+            uint8_t soc;
+            max17048_get_soc(&soc);
+            max17048_get_c_rate(&c_rate);
+            if (cnt % 100 == 0) {
+                ESP_LOGI(MAIN_TAG, "Battery SOC: %u%%", soc);
+                ESP_LOGI(MAIN_TAG, "max17048_c_rate = %f%%/hr", c_rate);
+            }
+            buffer_clear(&double_buffer);
+            //snprintf(idle_str, sizeof(idle_str), "CNT:%d", (cnt++) / 10);
+            snprintf(idle_str, sizeof(idle_str), "SOC:%d", soc);
+            draw_str(idle_str, 0, 2, &double_buffer);
+            buffer_update(&double_buffer);
+            break;
+        case STREAMING_STATE:
+            if (on_enter)
+            {
+                ESP_LOGI(MAIN_TAG, "Entering STREAMING_STATE");
+                if (xTimerStop(sleep_timer, 0) != pdPASS)
+                {
+                    ESP_LOGE(MAIN_TAG, "Failed to stop sleep timer");
+                }
+            }
+            break;
+        case SLEEP_STATE:
+            if (on_enter)
+            {
+                ESP_LOGI(MAIN_TAG, "Entering SLEEP_STATE");
                 buffer_clear(&double_buffer);
-                snprintf(idle_str, sizeof(idle_str), "CNT:%d", (cnt++) / 10);
-                draw_str(idle_str, 0, 2, &double_buffer);
                 buffer_update(&double_buffer);
-                break;
-            case STREAMING_STATE:
-                if (on_enter) {
-                    ESP_LOGI(MAIN_TAG, "Entering STREAMING_STATE");
-                    if (xTimerStop(sleep_timer, 0) != pdPASS)
-                    {
-                        ESP_LOGE(MAIN_TAG, "Failed to stop sleep timer");
-                    }
-                }
-                break;
-            case SLEEP_STATE:
-                if (on_enter) {
-                    ESP_LOGI(MAIN_TAG, "Entering SLEEP_STATE");
-                    buffer_clear(&double_buffer);
-                    buffer_update(&double_buffer);
-                }
-                break;
-            default:
-                break;
+            }
+            break;
+        default:
+            break;
         }
 
         vTaskDelay(100 / portTICK_PERIOD_MS);
