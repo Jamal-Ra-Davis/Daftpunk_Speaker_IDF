@@ -200,14 +200,6 @@ esp_err_t max17048_init()
         return ESP_FAIL;
     }
 
-    /*
-    ret = max17048_register_write_byte((uint8_t)MAX17048_MODE_REG, SLEEP_EN_BIT);
-    if (ret != ESP_OK)
-    {
-        return ret;
-    }
-    */
-
     ret = max17048_clear_alert();
     if (ret != ESP_OK)
     {

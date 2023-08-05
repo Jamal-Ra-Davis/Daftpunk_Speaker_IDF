@@ -106,8 +106,6 @@ static esp_err_t i2c_master_init(void)
         .mode = I2C_MODE_MASTER,
         .sda_io_num = I2C_MASTER_SDA_IO,
         .scl_io_num = I2C_MASTER_SCL_IO,
-        //.sda_pullup_en = GPIO_PULLUP_ENABLE,
-        //.scl_pullup_en = GPIO_PULLUP_ENABLE,
         .master.clk_speed = I2C_MASTER_FREQ_HZ,
     };
 
@@ -116,8 +114,6 @@ static esp_err_t i2c_master_init(void)
     return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
 }
 
-
-
 void soc_change_cb(void *ctx)
 {
     uint8_t soc;
@@ -125,7 +121,7 @@ void soc_change_cb(void *ctx)
     {
         ESP_LOGE(MAIN_TAG, "SOC Changed! Battery SOC: %u%%", soc);
     }
-    else 
+    else
     {
         ESP_LOGE(MAIN_TAG, "Failed to read SOC");
     }
@@ -139,22 +135,26 @@ esp_err_t fuel_gauge_setup()
 {
     esp_err_t esp_ret;
     esp_ret = max17048_init();
-    if (esp_ret != ESP_OK) {
+    if (esp_ret != ESP_OK)
+    {
         return esp_ret;
     }
 
     esp_ret = max17048_register_alert_cb(MAX17048_ALERT_SOC_CHANGE, soc_change_cb, NULL);
-    if (esp_ret != ESP_OK) {
+    if (esp_ret != ESP_OK)
+    {
         return esp_ret;
     }
 
     esp_ret = max17048_register_alert_cb(MAX17048_ALERT_SOC_LOW, soc_low_cb, NULL);
-    if (esp_ret != ESP_OK) {
+    if (esp_ret != ESP_OK)
+    {
         return esp_ret;
     }
 
     esp_ret = max17048_enable_soc_change_alert(true);
-    if (esp_ret != ESP_OK) {
+    if (esp_ret != ESP_OK)
+    {
         return esp_ret;
     }
 
@@ -172,7 +172,6 @@ void app_main(void)
     */
     esp_ret = i2c_master_init();
     ESP_ERROR_CHECK(esp_ret);
-    
 
     // Setup GPIOs
     /*
@@ -257,20 +256,12 @@ void app_main(void)
     }
 
     // Display countdown timer
-    /*
-    buffer_reset(&double_buffer);
-    for (int i=0; i<8; i++) {
-        buffer_set_pixel(&double_buffer, i, i);
-    }
-    buffer_update(&double_buffer);
-    */
-
     for (int i = 10; i >= 0; i--)
     {
         buffer_clear(&double_buffer);
         draw_int(i, 30, 2, &double_buffer);
         buffer_update(&double_buffer);
-        vTaskDelay(250 / portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 
     // Display boot text
@@ -294,7 +285,8 @@ void app_main(void)
 
     // Init fuel gague driver
     esp_ret = fuel_gauge_setup();
-    if (esp_ret != ESP_OK) {
+    if (esp_ret != ESP_OK)
+    {
         ESP_LOGE(MAIN_TAG, "Failed to setup fuel gauge");
         ESP_ERROR_CHECK(esp_ret);
         init_success = false;
@@ -310,13 +302,10 @@ void app_main(void)
 
     TimerHandle_t sleep_timer = xTimerCreate("Sleep_Timer", MS_TO_TICKS(15000), pdFALSE, NULL, sleep_timer_func);
 
-
     int cnt = 0;
     char idle_str[32] = {'\0'};
     while (1)
     {
-        // printf("Hello world %d!\n", ++cnt);
-
         bool on_enter = false;
         if (current_state != prev_state)
         {
@@ -327,6 +316,7 @@ void app_main(void)
         switch (current_state)
         {
         case IDLE_STATE:
+        {
             if (on_enter)
             {
                 ESP_LOGI(MAIN_TAG, "Entering IDLE_STATE");
@@ -336,20 +326,15 @@ void app_main(void)
                 }
             }
             uint8_t soc;
-            float c_rate;
             max17048_get_soc(&soc);
-            max17048_get_c_rate(&c_rate);
-            if (cnt % 100 == 0) {
-                //ESP_LOGI(MAIN_TAG, "Battery SOC: %u%%", soc);
-                //ESP_LOGI(MAIN_TAG, "max17048_c_rate = %f%%/hr", c_rate);
-            }
             buffer_clear(&double_buffer);
-            //snprintf(idle_str, sizeof(idle_str), "CNT:%d", (cnt++) / 10);
             snprintf(idle_str, sizeof(idle_str), "SOC:%d%%", soc);
             draw_str(idle_str, 0, 2, &double_buffer);
             buffer_update(&double_buffer);
             break;
+        }
         case STREAMING_STATE:
+        {
             if (on_enter)
             {
                 ESP_LOGI(MAIN_TAG, "Entering STREAMING_STATE");
@@ -359,7 +344,9 @@ void app_main(void)
                 }
             }
             break;
+        }
         case SLEEP_STATE:
+        {
             if (on_enter)
             {
                 ESP_LOGI(MAIN_TAG, "Entering SLEEP_STATE");
@@ -367,6 +354,7 @@ void app_main(void)
                 buffer_update(&double_buffer);
             }
             break;
+        }
         default:
             break;
         }
