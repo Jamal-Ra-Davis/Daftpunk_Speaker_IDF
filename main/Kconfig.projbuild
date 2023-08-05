@@ -46,4 +46,9 @@ menu "MAX17048 Config"
         default 33
         help
             Set the GPIO number used for the Alert pin
+    config MAX17048_EMPTY_ALERT_THESH
+        int "Empty SOC theshold"
+        default 10
+        help
+            SOC percentage at which SOC empty alert is triggerd
 endmenu

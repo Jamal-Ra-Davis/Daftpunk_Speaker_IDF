@@ -14,7 +14,14 @@ typedef enum {
     MAX17048_NUM_ALERTS,
 } max17048_alert_source_t;
 
+
 esp_err_t max17048_init();
+
+esp_err_t max17048_register_read(uint8_t reg_addr, uint8_t *data, size_t len);;
+esp_err_t max17048_register_read_word(uint8_t reg_addr, uint16_t *data);
+esp_err_t max17048_register_write_word(uint8_t reg_addr, uint16_t data);
+esp_err_t max17048_register_write(uint8_t reg_addr, uint8_t *data, size_t len);
+esp_err_t max17048_register_update(uint8_t reg_addr, uint16_t data, uint16_t mask);
 
 esp_err_t max17048_get_voltage(float *voltage);
 esp_err_t max17048_get_soc(uint8_t *soc);

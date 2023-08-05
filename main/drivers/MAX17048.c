@@ -32,9 +32,9 @@ typedef struct
     uint8_t bit_pos;
 } max17048_alert_work_t;
 
-max17048_alert_work_t alert_callbacks[MAX17048_NUM_ALERTS];
-SemaphoreHandle_t max17048_mutex = NULL;
-SemaphoreHandle_t max17048_sem = NULL;
+static max17048_alert_work_t alert_callbacks[MAX17048_NUM_ALERTS];
+static SemaphoreHandle_t max17048_mutex = NULL;
+static SemaphoreHandle_t max17048_sem = NULL;
 static TaskHandle_t xalert_task = NULL;
 
 typedef enum
@@ -55,24 +55,33 @@ typedef enum
 
 static void alert_handler_task(void *pvParameters);
 
-static esp_err_t max17048_register_read(uint8_t reg_addr, uint8_t *data, size_t len)
+esp_err_t max17048_register_read(uint8_t reg_addr, uint8_t *data, size_t len)
 {
     return i2c_master_write_read_device(I2C_MASTER_NUM, MAX17048_DEV_ADDR, &reg_addr, 1, data, len, I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
 }
-static esp_err_t max17048_register_read_byte(uint8_t reg_addr, uint8_t *data)
+
+esp_err_t max17048_register_read_word(uint8_t reg_addr, uint16_t *data)
 {
-    return max17048_register_read(reg_addr, data, sizeof(uint8_t));
+    uint8_t buf[2];
+    esp_err_t ret = max17048_register_read(reg_addr, buf, sizeof(buf));
+    if (ret != ESP_OK) {
+        return ret;
+    }
+    *data = (uint16_t)((buf[0] << 8) | buf[1]);
+    return ret;
 }
-static esp_err_t max17048_register_write_byte(uint8_t reg_addr, uint8_t data)
+
+esp_err_t max17048_register_write_word(uint8_t reg_addr, uint16_t data)
 {
     int ret;
-    uint8_t write_buf[2] = {reg_addr, data};
+    uint8_t write_buf[3] = {reg_addr, (uint8_t)(data >> 8), (uint8_t)(0x00FF & data)};
 
     ret = i2c_master_write_to_device(I2C_MASTER_NUM, MAX17048_DEV_ADDR, write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
 
     return ret;
 }
-static esp_err_t max17048_register_write(uint8_t reg_addr, uint8_t *data, size_t len)
+
+esp_err_t max17048_register_write(uint8_t reg_addr, uint8_t *data, size_t len)
 {
     int ret;
     uint8_t write_buf[33];
@@ -85,25 +94,26 @@ static esp_err_t max17048_register_write(uint8_t reg_addr, uint8_t *data, size_t
     {
         return ESP_ERR_INVALID_SIZE;
     }
+    write_buf[0] = reg_addr;
     memcpy(&write_buf[1], data, len);
 
     ret = i2c_master_write_to_device(I2C_MASTER_NUM, MAX17048_DEV_ADDR, write_buf, len + 1, I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
 
     return ret;
 }
-static esp_err_t max17048_register_update(uint8_t reg_addr, uint8_t data, uint8_t mask)
+esp_err_t max17048_register_update(uint8_t reg_addr, uint16_t data, uint16_t mask)
 {
     esp_err_t ret;
-    uint8_t read_val;
-    uint8_t val;
-    ret = max17048_register_read_byte(reg_addr, &read_val);
+    uint16_t read_val;
+    uint16_t val;
+    ret = max17048_register_read_word(reg_addr, &read_val);
     if (ret != ESP_OK)
     {
         return ret;
     }
 
     val = (data & mask) | (read_val & ~mask);
-    ret = max17048_register_write_byte(reg_addr, val);
+    ret = max17048_register_write_word(reg_addr, val);
     return ret;
 }
 
@@ -135,6 +145,8 @@ static void alert_handler_task(void *pvParameters)
             ESP_LOGE(MAX17048_TAG, "Failed to take semaphore");
             continue;
         }
+        
+        ESP_LOGI(MAX17048_TAG, "Alert detected");
         if (max17048_get_status(&status) != ESP_OK) 
         {
             ESP_LOGE(MAX17048_TAG, "Failed to read status register");
@@ -161,7 +173,7 @@ static void alert_handler_task(void *pvParameters)
 
 esp_err_t max17048_init()
 {
-    static const uint8_t SLEEP_EN_BIT = BIT(5);
+    //static const uint8_t SLEEP_EN_BIT = BIT(5);
     esp_err_t ret;
 
     for (int i = 0; i < MAX17048_NUM_ALERTS; i++)
@@ -188,11 +200,13 @@ esp_err_t max17048_init()
         return ESP_FAIL;
     }
 
+    /*
     ret = max17048_register_write_byte((uint8_t)MAX17048_MODE_REG, SLEEP_EN_BIT);
     if (ret != ESP_OK)
     {
         return ret;
     }
+    */
 
     ret = max17048_clear_alert();
     if (ret != ESP_OK)
@@ -213,6 +227,18 @@ esp_err_t max17048_init()
     }
 
     ret = gpio_isr_handler_add(CONFIG_MAX17048_ALERT_GPIO, alert_gpio_isr_handler, NULL);
+    if (ret != ESP_OK)
+    {
+        return ret;
+    }
+
+    ret = max17048_enable_soc_change_alert(true);
+    if (ret != ESP_OK)
+    {
+        return ret;
+    }
+
+    ret = max17048_set_empty_alert_threshold(CONFIG_MAX17048_EMPTY_ALERT_THESH);
     if (ret != ESP_OK)
     {
         return ret;
@@ -259,20 +285,20 @@ esp_err_t max17048_get_soc(uint8_t *soc)
 
 esp_err_t max17048_enable_sleep(bool enable)
 {
-    static const uint8_t SLEEP_BIT = BIT(7);
-    uint8_t val = (enable) ? SLEEP_BIT : 0;
-    return max17048_register_update((uint8_t)(MAX17048_CONFIG_REG + 1), val, SLEEP_BIT);
+    static const uint16_t SLEEP_BIT = BIT(7);
+    uint16_t val = (enable) ? SLEEP_BIT : 0;
+    return max17048_register_update((uint8_t)MAX17048_CONFIG_REG, val, SLEEP_BIT);
 }
 esp_err_t max17048_enable_soc_change_alert(bool enable)
 {
-    static const uint8_t SOC_CHANGE_BIT = BIT(6);
-    uint8_t val = (enable) ? SOC_CHANGE_BIT : 0;
-    return max17048_register_update((uint8_t)(MAX17048_CONFIG_REG + 1), val, SOC_CHANGE_BIT);
+    static const uint16_t SOC_CHANGE_BIT = BIT(6);
+    uint16_t val = (enable) ? SOC_CHANGE_BIT : 0;
+    return max17048_register_update((uint8_t)MAX17048_CONFIG_REG, val, SOC_CHANGE_BIT);
 }
 esp_err_t max17048_clear_alert()
-{
-    static const uint8_t ALERT_BIT = BIT(5);
-    return max17048_register_update((uint8_t)(MAX17048_CONFIG_REG + 1), 0, ALERT_BIT);
+{   
+    static const uint16_t ALERT_BIT = BIT(5);
+    return max17048_register_update((uint8_t)MAX17048_CONFIG_REG, 0, ALERT_BIT);
 }
 esp_err_t max17048_set_empty_alert_threshold(uint8_t alert_soc)
 {
@@ -280,9 +306,9 @@ esp_err_t max17048_set_empty_alert_threshold(uint8_t alert_soc)
     {
         return ESP_ERR_INVALID_ARG;
     }
-    static const uint8_t ALERT_THRESH_MASK = 0x1F;
-    uint8_t val = 32 - alert_soc;
-    return max17048_register_update((uint8_t)(MAX17048_CONFIG_REG + 1), val, ALERT_THRESH_MASK);
+    static const uint16_t ALERT_THRESH_MASK = 0x001F;
+    uint16_t val = 32 - alert_soc;
+    return max17048_register_update((uint8_t)MAX17048_CONFIG_REG, val, ALERT_THRESH_MASK);
 }
 
 esp_err_t max17048_set_valert_max(float voltage)
@@ -291,8 +317,10 @@ esp_err_t max17048_set_valert_max(float voltage)
     {
         return ESP_ERR_INVALID_ARG;
     }
-    uint8_t val = (uint8_t)(voltage / 0.02);
-    return max17048_register_write_byte((uint8_t)(MAX17048_VALRT_REG + 1), val);
+    static const uint16_t VALERT_MAX_MASK = 0x00FF;
+    uint8_t val_ = (uint8_t)(voltage / 0.02);
+    uint16_t val = (uint16_t)val_;
+    return max17048_register_update((uint8_t)MAX17048_VALRT_REG, val, VALERT_MAX_MASK);
 }
 esp_err_t max17048_set_valert_min(float voltage)
 {
@@ -300,8 +328,10 @@ esp_err_t max17048_set_valert_min(float voltage)
     {
         return ESP_ERR_INVALID_ARG;
     }
-    uint8_t val = (uint8_t)(voltage / 0.02);
-    return max17048_register_write_byte((uint8_t)MAX17048_VALRT_REG, val);
+    static const uint16_t VALERT_MIN_MASK = 0xFF00;
+    uint8_t val_ = (uint8_t)(voltage / 0.02);
+    uint16_t val = (uint16_t)(val_ << 8);
+    return max17048_register_update((uint8_t)MAX17048_VALRT_REG, val, VALERT_MIN_MASK);
 }
 
 esp_err_t max17048_get_c_rate(float *c_rate)
@@ -309,31 +339,44 @@ esp_err_t max17048_get_c_rate(float *c_rate)
     static const float C_RATE_SCALE = 0.208;
     esp_err_t ret = ESP_OK;
     uint16_t c_rate_raw;
-    ret = max17048_register_read((uint8_t)MAX17048_CRATE_REG, (uint8_t *)&c_rate_raw, sizeof(uint16_t));
+    ret = max17048_register_read_word((uint8_t)MAX17048_CRATE_REG, &c_rate_raw);
     if (ret != ESP_OK)
     {
         return ret;
     }
 
-    ESP_LOGI(MAX17048_TAG, "c_rate_raw = 0x%04X", c_rate_raw);
     *c_rate = (float)(C_RATE_SCALE * (int16_t)endian_swap_16bit(c_rate_raw));
     return ret;
 }
 
 esp_err_t max17048_get_id(uint8_t *id)
 {
-    return max17048_register_read((uint8_t)(MAX17048_VRESET_ID_REG + 1), id, sizeof(uint8_t));
+    uint16_t val;
+    esp_err_t ret = max17048_register_read_word((uint8_t)MAX17048_VRESET_ID_REG, &val);
+    if (ret != ESP_OK)
+    {
+        return ret;
+    }
+    *id = (uint8_t)(val & 0x00FF);
+    return ret;
 }
 
 esp_err_t max17048_get_status(uint8_t *status)
 {
-    return max17048_register_read((uint8_t)MAX17048_STATUS_REG, status, sizeof(uint8_t));
+    uint16_t val;
+    esp_err_t ret = max17048_register_read_word((uint8_t)MAX17048_STATUS_REG, &val);
+    if (ret != ESP_OK)
+    {
+        return ret;
+    }
+    *status = (uint8_t)((val >> 8) & 0x00FF);
+    return ret;
 }
 
 esp_err_t max17048_soft_reset()
 {
-    static const uint8_t SOFT_RESET_CMD[] = {0x54, 0x00};
-    return max17048_register_write((uint8_t)MAX17048_CMD_REG, (uint8_t *)SOFT_RESET_CMD, sizeof(SOFT_RESET_CMD));
+    static const uint16_t SOFT_RESET_CMD = 0x5400;
+    return max17048_register_write_word((uint8_t)MAX17048_CMD_REG, SOFT_RESET_CMD);
 }
 
 esp_err_t max17048_register_alert_cb(max17048_alert_source_t src, max17048_alert_cb_t cb, void *ctx)

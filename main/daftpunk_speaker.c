@@ -33,23 +33,6 @@
 #define I2C_MASTER_RX_BUF_DISABLE 0   /*!< I2C master doesn't need buffer */
 #define I2C_MASTER_TIMEOUT_MS 1000
 
-#define MAXLIPO_DEV_ADDR 0x36
-typedef enum
-{
-    MAX17048_VCELL_REG = 0x02,
-    MAX17048_SOC_REG = 0x04,
-    MAX17048_MODE_REG = 0x06,
-    MAX17048_VERSION_REG = 0x08,
-    MAX17048_HIBRT_REG = 0x0A,
-    MAX17048_CONFIG_REG = 0x0C,
-    MAX17048_VALRT_REG = 0x14,
-    MAX17048_CRATE_REG = 0x16,
-    MAX17048_VRESET_ID_REG = 0x18,
-    MAX17048_STATUS_REG = 0x1A,
-    MAX17048_TABLE_START_REG = 0x40,
-    MAX17048_CMD_REG = 0xFE,
-} MAX17048_register_t;
-
 system_state_t current_state = IDLE_STATE;
 system_state_t prev_state = BOOT_STATE;
 
@@ -132,75 +115,8 @@ static esp_err_t i2c_master_init(void)
 
     return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
 }
-/*
-static esp_err_t max17048_register_read(uint8_t reg_addr, uint8_t *data, size_t len)
-{
-    return i2c_master_write_read_device(I2C_MASTER_NUM, MAXLIPO_DEV_ADDR, &reg_addr, 1, data, len, I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
-}
-static esp_err_t max17048_register_write_byte(uint8_t reg_addr, uint8_t data)
-{
-    int ret;
-    uint8_t write_buf[2] = {reg_addr, data};
 
-    ret = i2c_master_write_to_device(I2C_MASTER_NUM, MAXLIPO_DEV_ADDR, write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
 
-    return ret;
-}
-static esp_err_t max17048_register_write(uint8_t reg_addr, uint8_t *data, size_t len)
-{
-    int ret;
-    uint8_t write_buf[33];
-    
-    if (data == NULL)
-    {
-        return ESP_ERR_INVALID_ARG;
-    }
-    if (len > sizeof(write_buf) - 1)
-    {
-        return ESP_ERR_INVALID_SIZE;
-    }
-    memcpy(&write_buf[1], data, len);
-
-    ret = i2c_master_write_to_device(I2C_MASTER_NUM, MAXLIPO_DEV_ADDR, write_buf, len + 1, I2C_MASTER_TIMEOUT_MS / portTICK_RATE_MS);
-
-    return ret;
-}
-static uint16_t endian_swap_16bit(uint16_t data)
-{
-    uint8_t *raw = (uint8_t *)&data;
-    uint16_t ret = (raw[0] << 8) | raw[1];
-    return ret;
-}
-static esp_err_t max17048_get_version(uint16_t *version)
-{
-    esp_err_t ret = ESP_OK;
-    uint16_t version_raw;
-    ret = max17048_register_read(MAX17048_VERSION_REG, &version_raw, sizeof(uint16_t));
-    if (ret != ESP_OK)
-    {
-        return ret;
-    }
-    *version = endian_swap_16bit(version_raw);
-    return ret;
-}
-static esp_err_t max17048_get_soc(uint8_t *soc)
-{
-    return max17048_register_read(MAX17048_SOC_REG, soc, sizeof(uint8_t));
-}
-static esp_err_t max17048_get_voltage(float *voltage)
-{
-    static const VOLTAGE_SCALE = 0.000078125;
-    esp_err_t ret = ESP_OK;
-    uint16_t voltage_raw;
-    ret = max17048_register_read(MAX17048_VERSION_REG, &version_raw, sizeof(uint16_t));
-    if (ret != ESP_OK)
-    {
-        return ret;
-    }
-    *voltage = (float)(VOLTAGE_SCALE * endian_swap_16bit(voltage_raw));
-    return ret;
-}
-*/
 
 void soc_change_cb(void *ctx)
 {
@@ -214,6 +130,36 @@ void soc_change_cb(void *ctx)
         ESP_LOGE(MAIN_TAG, "Failed to read SOC");
     }
 }
+void soc_low_cb(void *ctx)
+{
+    ESP_LOGE(MAIN_TAG, "Battery level low, please recharge soon");
+}
+
+esp_err_t fuel_gauge_setup()
+{
+    esp_err_t esp_ret;
+    esp_ret = max17048_init();
+    if (esp_ret != ESP_OK) {
+        return esp_ret;
+    }
+
+    esp_ret = max17048_register_alert_cb(MAX17048_ALERT_SOC_CHANGE, soc_change_cb, NULL);
+    if (esp_ret != ESP_OK) {
+        return esp_ret;
+    }
+
+    esp_ret = max17048_register_alert_cb(MAX17048_ALERT_SOC_LOW, soc_low_cb, NULL);
+    if (esp_ret != ESP_OK) {
+        return esp_ret;
+    }
+
+    esp_ret = max17048_enable_soc_change_alert(true);
+    if (esp_ret != ESP_OK) {
+        return esp_ret;
+    }
+
+    return esp_ret;
+}
 
 void app_main(void)
 {
@@ -226,6 +172,7 @@ void app_main(void)
     */
     esp_ret = i2c_master_init();
     ESP_ERROR_CHECK(esp_ret);
+    
 
     // Setup GPIOs
     /*
@@ -346,39 +293,12 @@ void app_main(void)
     }
 
     // Init fuel gague driver
-    esp_ret = max17048_init();
-    ESP_ERROR_CHECK(esp_ret);
-
-    esp_ret = max17048_register_alert_cb(MAX17048_ALERT_SOC_CHANGE, soc_change_cb, NULL);
-    ESP_ERROR_CHECK(esp_ret);
-
-    esp_ret = max17048_enable_soc_change_alert(true);
-    ESP_ERROR_CHECK(esp_ret);
-
-    uint16_t max17048_version;
-    esp_ret = max17048_get_version(&max17048_version);
-    ESP_ERROR_CHECK(esp_ret);
-    ESP_LOGI(MAIN_TAG, "max17048_version = 0x%04X", max17048_version);
-
-    float voltage;
-    esp_ret = max17048_get_voltage(&voltage);
-    ESP_ERROR_CHECK(esp_ret);
-    ESP_LOGI(MAIN_TAG, "max17048_voltage = %fV", voltage);
-
-    uint8_t soc_;
-    esp_ret = max17048_get_soc(&soc_);
-    ESP_ERROR_CHECK(esp_ret);
-    ESP_LOGI(MAIN_TAG, "max17048_soc = %d%%", soc_);
-
-    float c_rate;
-    esp_ret = max17048_get_c_rate(&c_rate);
-    ESP_ERROR_CHECK(esp_ret);
-    ESP_LOGI(MAIN_TAG, "max17048_c_rate = %f%%/hr", c_rate);
-    
-    uint8_t max17048_id;
-    esp_ret = max17048_get_id(&max17048_id);
-    ESP_ERROR_CHECK(esp_ret);
-    ESP_LOGI(MAIN_TAG, "max17048_id = 0x%02X", max17048_id);
+    esp_ret = fuel_gauge_setup();
+    if (esp_ret != ESP_OK) {
+        ESP_LOGE(MAIN_TAG, "Failed to setup fuel gauge");
+        ESP_ERROR_CHECK(esp_ret);
+        init_success = false;
+    }
 
     // Init CLI task
 
@@ -389,6 +309,7 @@ void app_main(void)
     bt_audio_init();
 
     TimerHandle_t sleep_timer = xTimerCreate("Sleep_Timer", MS_TO_TICKS(15000), pdFALSE, NULL, sleep_timer_func);
+
 
     int cnt = 0;
     char idle_str[32] = {'\0'};
@@ -415,15 +336,16 @@ void app_main(void)
                 }
             }
             uint8_t soc;
+            float c_rate;
             max17048_get_soc(&soc);
             max17048_get_c_rate(&c_rate);
             if (cnt % 100 == 0) {
-                ESP_LOGI(MAIN_TAG, "Battery SOC: %u%%", soc);
-                ESP_LOGI(MAIN_TAG, "max17048_c_rate = %f%%/hr", c_rate);
+                //ESP_LOGI(MAIN_TAG, "Battery SOC: %u%%", soc);
+                //ESP_LOGI(MAIN_TAG, "max17048_c_rate = %f%%/hr", c_rate);
             }
             buffer_clear(&double_buffer);
             //snprintf(idle_str, sizeof(idle_str), "CNT:%d", (cnt++) / 10);
-            snprintf(idle_str, sizeof(idle_str), "SOC:%d", soc);
+            snprintf(idle_str, sizeof(idle_str), "SOC:%d%%", soc);
             draw_str(idle_str, 0, 2, &double_buffer);
             buffer_update(&double_buffer);
             break;
