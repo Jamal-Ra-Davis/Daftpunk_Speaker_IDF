@@ -9,7 +9,6 @@
 
 #include <math.h>
 #include <string.h>
-// #include "Logging.h"
 
 #define FFT_TASK_STACK_SIZE 3072
 #define FFT_N 2048
@@ -18,8 +17,6 @@
 #define FFT_BUCKETS 40
 #define PRINT_DELTA false
 #define FFT_TASK_TAG "FFT_Task"
-
-// TODO: Investigate why audio stream stops sometimes. Check if it's due to FFT processing/display
 
 struct fft_double_buffer
 {
@@ -44,7 +41,7 @@ static const char *FFT_DISPLAY_NAMES[NUM_FFT_DISPLAYS] = {
     "FFT_LOG",
 };
 
-//static const uint16_t MAX_FREQ = 8447;
+// static const uint16_t MAX_FREQ = 8447;
 static float fft_output[FFT_N];
 static float fft_input[FFT_N];
 static struct fft_double_buffer fft_buf;
@@ -60,7 +57,6 @@ static void fft_task(void *pvParameters);
 static void process_fft();
 static void init_fft_buffer(struct fft_double_buffer *fft_buf);
 static inline void swap_fft_buffers(struct fft_double_buffer *fft_buf);
-static void update_freq_array(float *freq_data, int N, float freq, float mag);
 static void idle_timer_func(TimerHandle_t xTimer);
 
 // Public Functions
@@ -220,33 +216,26 @@ void process_fft()
         ESP_LOGE(FFT_TASK_TAG, "Failed to take semaphore");
         return;
     }
-    static int cnt = 0;
-    int32_t start_time = esp_log_timestamp();
+
+    int32_t fft_start_time = esp_log_timestamp();
+    int32_t fft_end_time;
     memcpy((void *)fft_input, (void *)fft_buf.fft_read, sizeof(fft_input));
 
-    float max_magnitude = 0;
-    float fundamental_freq = 0;
-
-    float freq_data[10] = {0.0};
-    float bucket_data[32] = {0.0};
-    float bucket_mag = 0;
-    float bucket_freq = 0;
     float bucket_mags[FFT_BUCKETS] = {0.0};
-    int fft_idx = 0;
-
-    int bucket_idx = 0;
+    float freq;
+    float mag;
     fft_execute(real_fft_plan);
     for (int k = 1; k < real_fft_plan->size / 2; k++)
     {
         /*The real part of a magnitude at a frequency is
           followed by the corresponding imaginary part in the output*/
-        float mag = sqrt(pow(real_fft_plan->output[2 * k], 2) + pow(real_fft_plan->output[2 * k + 1], 2));
-        float freq = k * 1.0 / TOTAL_TIME;
+        freq = k * 1.0 / TOTAL_TIME;
         if (freq > ranges[FFT_BUCKETS - 1])
         {
             // Exit loop if current freq exceeds values in FFT bucket range
             break;
         }
+        mag = sqrt(pow(real_fft_plan->output[2 * k], 2) + pow(real_fft_plan->output[2 * k + 1], 2));
 
         int bidx;
         for (bidx = 0; bidx < FFT_BUCKETS; bidx++)
@@ -266,22 +255,11 @@ void process_fft()
             bucket_mags[bidx] = mag;
         }
     }
-    int32_t end_time = esp_log_timestamp();
 
-    /*
-    if (false && cnt % 10 == 0)
+    // End of FFT Calculations
+    fft_end_time = esp_log_timestamp();
+    if (current_state != STREAMING_STATE)
     {
-        Serial.println("Mags:");
-        for (int i = 0; i < FFT_BUCKETS; i++)
-        {
-            Serial.print(bucket_mags[i]);
-            Serial.print(" ");
-        }
-        Serial.println();
-    }
-    */
-
-    if (current_state != STREAMING_STATE) {
         current_state = STREAMING_STATE;
     }
     switch (fft_display)
@@ -296,47 +274,23 @@ void process_fft()
         break;
     }
 
-    cnt++;
-    int32_t delta = esp_log_timestamp() - start_time;
-    if (PRINT_DELTA)
-    {
-        ESP_LOGI(FFT_TASK_TAG, "Delta: %d", delta);
-    }
     if (xTimerStart(idle_timer, 0) != pdPASS)
     {
         ESP_LOGE(FFT_TASK_TAG, "Failed to start idle timer");
     }
-}
 
-void update_freq_array(float *freq_data, int N, float freq, float mag)
-{
-    int idx = -1;
-    for (int i = 0; i < N; i += 2)
+    if (PRINT_DELTA)
     {
-        if (mag > freq_data[i + 1])
-        {
-            // Shift everything down
-            idx = i;
-            break;
-        }
+        int32_t delta_fft = fft_end_time - fft_start_time;
+        int32_t delta_total = esp_log_timestamp() - fft_start_time;
+        ESP_LOGI(FFT_TASK_TAG, "Delta FFT: %d, Delta Total: %d", delta_fft, delta_total);
     }
-    if (idx == -1)
-    {
-        return;
-    }
-
-    for (int i = N - 2; i > idx; i -= 2)
-    {
-        freq_data[i] = freq_data[i - 2];
-        freq_data[i + 1] = freq_data[i - 1];
-    }
-    freq_data[0] = freq;
-    freq_data[1] = mag;
 }
 
 static void idle_timer_func(TimerHandle_t xTimer)
 {
-    if (current_state == STREAMING_STATE) {
+    if (current_state == STREAMING_STATE)
+    {
         current_state = IDLE_STATE;
     }
 }
