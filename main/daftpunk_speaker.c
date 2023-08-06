@@ -64,6 +64,7 @@ void volume_decrease_cb(void *ctx)
 }
 static void select_action(void *ctx)
 {
+    static bool triple_buffering = true;
     ESP_LOGI(MAIN_TAG, "Select button pressed - Create a2dp sink");
     ESP_LOGI(MAIN_TAG, "Creating a2dp sink...");
     // a2dp_sink.start("DevBoard_v0");
@@ -73,6 +74,10 @@ static void select_action(void *ctx)
     {
         current_state = IDLE_STATE;
     }
+
+    ESP_LOGI(MAIN_TAG, "%s triple buffering", (triple_buffering) ? "Enabling" : "Disabling");
+    buffer_enable_triple_buffering(&double_buffer, triple_buffering);
+    triple_buffering = !triple_buffering;
 }
 
 static volatile bool pair_press = false;
@@ -300,6 +305,17 @@ void app_main(void)
 
     // Display boot text
     int test_str_len = get_str_width("DEVBOARD_V0");
+    buffer_enable_triple_buffering(&double_buffer, false);
+    for (int i = FRAME_BUF_COLS; i >= -test_str_len; i--)
+    {
+        buffer_clear(&double_buffer);
+        draw_str("DEVBOARD_V0", i, 2, &double_buffer);
+        buffer_update(&double_buffer);
+        vTaskDelay(20 / portTICK_PERIOD_MS);
+    }
+
+    vTaskDelay(200 / portTICK_PERIOD_MS);
+    buffer_enable_triple_buffering(&double_buffer, true);
     for (int i = FRAME_BUF_COLS; i >= -test_str_len; i--)
     {
         buffer_clear(&double_buffer);

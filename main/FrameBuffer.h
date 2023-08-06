@@ -15,8 +15,12 @@ typedef struct {
 typedef struct {
     frame_buffer_t buf0;
     frame_buffer_t buf1;
+    frame_buffer_t buf2;
     frame_buffer_t *rbuf;
     frame_buffer_t *wbuf;
+    frame_buffer_t *ibuf;
+    bool update;
+    bool triple_buffering;
 } double_buffer_t;
 
 void buffer_reset(double_buffer_t *buffer);
@@ -28,6 +32,8 @@ int buffer_set_byte(double_buffer_t *buffer, uint8_t x, uint8_t y, uint8_t b);
 bool buffer_check_pixel(double_buffer_t *buffer, uint8_t x, uint8_t y);
 bool buffer_compare_match(double_buffer_t *buffer);
 void buffer_update(double_buffer_t *buffer);
+void buffer_start_of_frame(double_buffer_t *buffer);
+void buffer_enable_triple_buffering(double_buffer_t *buffer, bool triple_buffering);
 frame_buffer_t *buffer_get_read_buffer(double_buffer_t *buffer);
 
 extern double_buffer_t double_buffer;

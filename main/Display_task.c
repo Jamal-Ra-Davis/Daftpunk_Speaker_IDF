@@ -51,7 +51,8 @@ int init_display_task()
     buffer_reset(&double_buffer);
 
     xDisplayTimerSem = xSemaphoreCreateBinary();
-    if (xDisplayTimerSem == NULL) {
+    if (xDisplayTimerSem == NULL)
+    {
         ESP_LOGE(DISPLAY_TASK_TAG, "Failed create xDisplayTimerSem");
         return -1;
     }
@@ -92,6 +93,10 @@ static inline void update_display()
     // sr_buffer[0] corresponds to ROW select shift register,
     // while sr_buffer[1:5] corresponds to column data
 
+    if (row_idx == 0)
+    {
+        buffer_start_of_frame(&double_buffer);
+    }
     sr_buffer[0] = (1 << row_idx);
     frame_buffer_t *rbuf = buffer_get_read_buffer(&double_buffer);
     memcpy(&sr_buffer[1], rbuf->frame_buffer[row_idx], FRAME_BUF_COL_BYTES);
