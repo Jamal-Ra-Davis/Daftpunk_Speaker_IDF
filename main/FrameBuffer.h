@@ -21,43 +21,19 @@ typedef struct {
     frame_buffer_t *ibuf;
     bool update;
     bool triple_buffering;
-} double_buffer_t;
+} display_buffer_t;
 
-void buffer_reset(double_buffer_t *buffer);
-void buffer_clear(double_buffer_t *buffer);
-void buffer_copy(double_buffer_t *buffer);
-int buffer_set_pixel(double_buffer_t *buffer, uint8_t x, uint8_t y);
-int buffer_clear_pixel(double_buffer_t *buffer, uint8_t x, uint8_t y);
-int buffer_set_byte(double_buffer_t *buffer, uint8_t x, uint8_t y, uint8_t b);
-bool buffer_check_pixel(double_buffer_t *buffer, uint8_t x, uint8_t y);
-bool buffer_compare_match(double_buffer_t *buffer);
-void buffer_update(double_buffer_t *buffer);
-void buffer_start_of_frame(double_buffer_t *buffer);
-void buffer_enable_triple_buffering(double_buffer_t *buffer, bool triple_buffering);
-frame_buffer_t *buffer_get_read_buffer(double_buffer_t *buffer);
+void buffer_reset(display_buffer_t *buffer);
+void buffer_clear(display_buffer_t *buffer);
+void buffer_copy(display_buffer_t *buffer);
+int buffer_set_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y);
+int buffer_clear_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y);
+int buffer_set_byte(display_buffer_t *buffer, uint8_t x, uint8_t y, uint8_t b);
+bool buffer_check_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y);
+bool buffer_compare_match(display_buffer_t *buffer);
+void buffer_update(display_buffer_t *buffer);
+void buffer_start_of_frame(display_buffer_t *buffer);
+void buffer_enable_triple_buffering(display_buffer_t *buffer, bool triple_buffering);
+frame_buffer_t *buffer_get_read_buffer(display_buffer_t *buffer);
 
-extern double_buffer_t double_buffer;
-
-/*
-class DoubleBuffer {
-    private:
-        frame_buffer_t buf0;
-        frame_buffer_t buf1;
-        frame_buffer_t *rbuf;
-        frame_buffer_t *wbuf;
-    public:
-        DoubleBuffer();
-        void reset();
-        void clear();
-        void copy();
-        int setPixel(uint8_t x, uint8_t y);
-        int clearPixel(uint8_t x, uint8_t y);
-        int setByte(uint8_t x, uint8_t y, uint8_t b);
-        bool checkPixel(uint8_t x, uint8_t y);
-        bool bufferCompareMatch();
-        void update();
-        frame_buffer_t *getReadBuffer() {return rbuf;}
-};
-
-extern DoubleBuffer double_buffer;
-*/
+extern display_buffer_t display_buffer;

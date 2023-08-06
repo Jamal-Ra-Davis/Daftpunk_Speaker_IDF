@@ -530,7 +530,7 @@ inline int get_font_width(char c)
     }
     return -1;
 }
-int draw_char(char c, int x, int y, double_buffer_t *frame_buffer)
+int draw_char(char c, int x, int y, display_buffer_t *frame_buffer)
 {
     int font_idx = char_to_idx(c);
     int font_width = get_font_width(c);
@@ -554,7 +554,7 @@ int draw_char(char c, int x, int y, double_buffer_t *frame_buffer)
     }
     return 0;
 }
-void draw_str(const char *s, int x, int y, double_buffer_t *frame_buffer)
+void draw_str(const char *s, int x, int y, display_buffer_t *frame_buffer)
 {
     if (s == NULL) {
         return;
@@ -569,7 +569,7 @@ void draw_str(const char *s, int x, int y, double_buffer_t *frame_buffer)
         char_x += width;
     }
 }
-void draw_int(int val, int x, int y, double_buffer_t *frame_buffer)
+void draw_int(int val, int x, int y, display_buffer_t *frame_buffer)
 {
     if (val == 0) {
         draw_char((char)('0'), x, y, frame_buffer);

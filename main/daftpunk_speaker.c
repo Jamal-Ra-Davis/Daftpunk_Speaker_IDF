@@ -76,7 +76,7 @@ static void select_action(void *ctx)
     }
 
     ESP_LOGI(MAIN_TAG, "%s triple buffering", (triple_buffering) ? "Enabling" : "Disabling");
-    buffer_enable_triple_buffering(&double_buffer, triple_buffering);
+    buffer_enable_triple_buffering(&display_buffer, triple_buffering);
     triple_buffering = !triple_buffering;
 }
 
@@ -297,30 +297,30 @@ void app_main(void)
     // Display countdown timer
     for (int i = 10; i >= 0; i--)
     {
-        buffer_clear(&double_buffer);
-        draw_int(i, 30, 2, &double_buffer);
-        buffer_update(&double_buffer);
+        buffer_clear(&display_buffer);
+        draw_int(i, 30, 2, &display_buffer);
+        buffer_update(&display_buffer);
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 
     // Display boot text
     int test_str_len = get_str_width("DEVBOARD_V0");
-    buffer_enable_triple_buffering(&double_buffer, false);
+    buffer_enable_triple_buffering(&display_buffer, false);
     for (int i = FRAME_BUF_COLS; i >= -test_str_len; i--)
     {
-        buffer_clear(&double_buffer);
-        draw_str("DEVBOARD_V0", i, 2, &double_buffer);
-        buffer_update(&double_buffer);
+        buffer_clear(&display_buffer);
+        draw_str("DEVBOARD_V0", i, 2, &display_buffer);
+        buffer_update(&display_buffer);
         vTaskDelay(20 / portTICK_PERIOD_MS);
     }
 
     vTaskDelay(200 / portTICK_PERIOD_MS);
-    buffer_enable_triple_buffering(&double_buffer, true);
+    buffer_enable_triple_buffering(&display_buffer, true);
     for (int i = FRAME_BUF_COLS; i >= -test_str_len; i--)
     {
-        buffer_clear(&double_buffer);
-        draw_str("DEVBOARD_V0", i, 2, &double_buffer);
-        buffer_update(&double_buffer);
+        buffer_clear(&display_buffer);
+        draw_str("DEVBOARD_V0", i, 2, &display_buffer);
+        buffer_update(&display_buffer);
         vTaskDelay(20 / portTICK_PERIOD_MS);
     }
 
@@ -378,10 +378,10 @@ void app_main(void)
             }
             uint8_t soc;
             max17048_get_soc(&soc);
-            buffer_clear(&double_buffer);
+            buffer_clear(&display_buffer);
             snprintf(idle_str, sizeof(idle_str), "SOC:%d%%", soc);
-            draw_str(idle_str, 0, 2, &double_buffer);
-            buffer_update(&double_buffer);
+            draw_str(idle_str, 0, 2, &display_buffer);
+            buffer_update(&display_buffer);
             break;
         }
         case STREAMING_STATE:
@@ -401,8 +401,8 @@ void app_main(void)
             if (on_enter)
             {
                 ESP_LOGI(MAIN_TAG, "Entering SLEEP_STATE");
-                buffer_clear(&double_buffer);
-                buffer_update(&double_buffer);
+                buffer_clear(&display_buffer);
+                buffer_update(&display_buffer);
             }
             break;
         }

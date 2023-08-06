@@ -164,7 +164,7 @@ static inline void swap_fft_buffers(struct fft_double_buffer *fft_buf)
 
 static inline void draw_fft_linear(float bucket_mags[])
 {
-    buffer_clear(&double_buffer);
+    buffer_clear(&display_buffer);
     for (int i = 0; i < FFT_BUCKETS; i++)
     {
         if (bucket_mags[i] > MAX_FFT_MAG)
@@ -174,15 +174,15 @@ static inline void draw_fft_linear(float bucket_mags[])
         int height = (int)((bucket_mags[i] / MAX_FFT_MAG) * 8);
         for (int j = 0; j < height; j++)
         {
-            buffer_set_pixel(&double_buffer, i, j);
+            buffer_set_pixel(&display_buffer, i, j);
         }
     }
-    buffer_update(&double_buffer);
+    buffer_update(&display_buffer);
 }
 static inline void draw_fft_logarithmic(float bucket_mags[])
 {
     uint32_t log_min = log_base_value;
-    buffer_clear(&double_buffer);
+    buffer_clear(&display_buffer);
     for (int i = 0; i < FFT_BUCKETS; i++)
     {
         uint32_t mag = (uint32_t)bucket_mags[i];
@@ -199,10 +199,10 @@ static inline void draw_fft_logarithmic(float bucket_mags[])
 
         for (uint8_t j = 0; j < height; j++)
         {
-            buffer_set_pixel(&double_buffer, i, j);
+            buffer_set_pixel(&display_buffer, i, j);
         }
     }
-    buffer_update(&double_buffer);
+    buffer_update(&display_buffer);
 }
 
 static void fft_task(void *pvParameters)

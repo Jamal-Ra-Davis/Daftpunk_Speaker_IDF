@@ -48,7 +48,7 @@ static bool IRAM_ATTR timer_group_isr_callback(void *args)
 int init_display_task()
 {
     init_shift_registers();
-    buffer_reset(&double_buffer);
+    buffer_reset(&display_buffer);
 
     xDisplayTimerSem = xSemaphoreCreateBinary();
     if (xDisplayTimerSem == NULL)
@@ -95,10 +95,10 @@ static inline void update_display()
 
     if (row_idx == 0)
     {
-        buffer_start_of_frame(&double_buffer);
+        buffer_start_of_frame(&display_buffer);
     }
     sr_buffer[0] = (1 << row_idx);
-    frame_buffer_t *rbuf = buffer_get_read_buffer(&double_buffer);
+    frame_buffer_t *rbuf = buffer_get_read_buffer(&display_buffer);
     memcpy(&sr_buffer[1], rbuf->frame_buffer[row_idx], FRAME_BUF_COL_BYTES);
     sr_write(sr_buffer, SR_CNT);
     row_idx = (row_idx + 1) % FRAME_BUF_ROWS;
