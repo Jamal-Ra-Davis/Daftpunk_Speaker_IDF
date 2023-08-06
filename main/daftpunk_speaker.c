@@ -21,6 +21,7 @@
 #include "system_states.h"
 #include "bt_audio.h"
 #include "MAX17048.h"
+#include "rgb_manager.h"
 
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
@@ -98,6 +99,42 @@ static void sleep_timer_func(TimerHandle_t xTimer)
     current_state = SLEEP_STATE;
 }
 
+static void bt_connected_action(void *ctx)
+{
+    ESP_LOGI(MAIN_TAG, "BT Audio Connected");
+    set_rgb_state(RGB_MANUAL);
+    //oneshot_blink(5, 200, 100, 100, 100);
+    set_rgb_led(60, 80, 60);
+}
+static void bt_disconnected_action(void *ctx)
+{
+    ESP_LOGI(MAIN_TAG, "BT Audio Disconnected");
+    set_rgb_state(RGB_PAIRING);
+}
+static void bt_connecting_action(void *ctx)
+{
+    ESP_LOGI(MAIN_TAG, "BT Audio connecting");
+    set_rgb_state(RGB_MANUAL);
+    set_rgb_led(0, 100, 30);
+}
+void soc_change_cb(void *ctx)
+{
+    uint8_t soc;
+    if (max17048_get_soc(&soc) == ESP_OK)
+    {
+        ESP_LOGE(MAIN_TAG, "SOC Changed! Battery SOC: %u%%", soc);
+    }
+    else
+    {
+        ESP_LOGE(MAIN_TAG, "Failed to read SOC");
+    }
+}
+void soc_low_cb(void *ctx)
+{
+    ESP_LOGE(MAIN_TAG, "Battery level low, please recharge soon");
+    set_rgb_state(RGB_LOW_BATTERY);
+}
+
 static esp_err_t i2c_master_init(void)
 {
     int i2c_master_port = I2C_MASTER_NUM;
@@ -114,22 +151,7 @@ static esp_err_t i2c_master_init(void)
     return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
 }
 
-void soc_change_cb(void *ctx)
-{
-    uint8_t soc;
-    if (max17048_get_soc(&soc) == ESP_OK)
-    {
-        ESP_LOGE(MAIN_TAG, "SOC Changed! Battery SOC: %u%%", soc);
-    }
-    else
-    {
-        ESP_LOGE(MAIN_TAG, "Failed to read SOC");
-    }
-}
-void soc_low_cb(void *ctx)
-{
-    ESP_LOGE(MAIN_TAG, "Battery level low, please recharge soon");
-}
+
 
 esp_err_t fuel_gauge_setup()
 {
@@ -209,6 +231,10 @@ void app_main(void)
     ret |= register_event_callback(CHARGE_START, charge_start_action, NULL);
     ret |= register_event_callback(CHARGE_STOP, charge_stop_action, NULL);
 
+    ret |= register_event_callback(BT_AUDIO_CONNECTED, bt_connected_action, NULL);
+    ret |= register_event_callback(BT_AUDIO_DISCONNECTED, bt_disconnected_action, NULL);
+    ret |= register_event_callback(BT_AUDIO_CONNECTING, bt_connecting_action, NULL);
+
     // Init button manager
     if (init_buttons() < 0)
     {
@@ -217,6 +243,7 @@ void app_main(void)
     }
 
     // Init RGBW LED manager
+    /*
     gpio_config_t gp_cfg = {
         .pin_bit_mask = GPIO_SEL_17,
         .mode = GPIO_MODE_OUTPUT,
@@ -254,6 +281,13 @@ void app_main(void)
         strip->refresh(strip, 100);
         vTaskDelay(pdMS_TO_TICKS(100));
     }
+    */
+    esp_ret = init_rgb_manager();
+    if (esp_ret != ESP_OK) {
+        ESP_LOGE(MAIN_TAG, "Failed to init rgb manger");
+        init_success = false;
+    }
+    set_rgb_state(RGB_PAIRING);
 
     // Display countdown timer
     for (int i = 10; i >= 0; i--)
@@ -302,6 +336,7 @@ void app_main(void)
 
     TimerHandle_t sleep_timer = xTimerCreate("Sleep_Timer", MS_TO_TICKS(15000), pdFALSE, NULL, sleep_timer_func);
 
+    
     int cnt = 0;
     char idle_str[32] = {'\0'};
     while (1)

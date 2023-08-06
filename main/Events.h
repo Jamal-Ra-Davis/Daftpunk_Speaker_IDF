@@ -5,7 +5,8 @@
 
 #define EVENTS_TAG "EVENT_MANAGER"
 
-typedef enum {
+typedef enum
+{
     VOL_P_SHORT_PRESS,
     VOL_P_LONG_PRESS,
     VOL_M_SHORT_PRESS,
@@ -14,6 +15,9 @@ typedef enum {
     PAIR_LONG_PRESS,
     CHARGE_START,
     CHARGE_STOP,
+    BT_AUDIO_CONNECTED,
+    BT_AUDIO_DISCONNECTED,
+    BT_AUDIO_CONNECTING,
     NUM_EVENTS,
 } system_event_t;
 
