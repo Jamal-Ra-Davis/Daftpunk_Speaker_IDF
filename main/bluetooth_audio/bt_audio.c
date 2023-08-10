@@ -24,11 +24,13 @@
 
 // Bluetooth stuff
 /* device name */
-#define LOCAL_DEVICE_NAME    "ESP_SPEAKER"
+#define LOCAL_DEVICE_NAME "ESP_SPEAKER"
 
 /* event for stack up */
-enum {
+enum
+{
     BT_APP_EVT_STACK_UP = 0,
+    BT_APP_EVT_STACK_DOWN,
 };
 
 /********************************
@@ -48,13 +50,18 @@ static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *pa
 {
     uint8_t *bda = NULL;
 
-    switch (event) {
+    switch (event)
+    {
     /* when authentication completed, this event comes */
-    case ESP_BT_GAP_AUTH_CMPL_EVT: {
-        if (param->auth_cmpl.stat == ESP_BT_STATUS_SUCCESS) {
+    case ESP_BT_GAP_AUTH_CMPL_EVT:
+    {
+        if (param->auth_cmpl.stat == ESP_BT_STATUS_SUCCESS)
+        {
             ESP_LOGI(BT_AV_TAG, "authentication success: %s", param->auth_cmpl.device_name);
             esp_log_buffer_hex(BT_AV_TAG, param->auth_cmpl.bda, ESP_BD_ADDR_LEN);
-        } else {
+        }
+        else
+        {
             ESP_LOGE(BT_AV_TAG, "authentication failed, status: %d", param->auth_cmpl.stat);
         }
         break;
@@ -93,7 +100,8 @@ static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *pa
                  bda[0], bda[1], bda[2], bda[3], bda[4], bda[5], param->acl_disconn_cmpl_stat.reason);
         break;
     /* others */
-    default: {
+    default:
+    {
         ESP_LOGI(BT_AV_TAG, "event: %d", event);
         break;
     }
@@ -104,9 +112,12 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
 {
     ESP_LOGD(BT_AV_TAG, "%s event: %d", __func__, event);
 
-    switch (event) {
+    switch (event)
+    {
     /* when do the stack up, this event comes */
-    case BT_APP_EVT_STACK_UP: {
+    case BT_APP_EVT_STACK_UP:
+    {
+        esp_err_t err;
         esp_bt_dev_set_device_name(LOCAL_DEVICE_NAME);
         esp_bt_gap_register_callback(bt_app_gap_cb);
 
@@ -119,12 +130,41 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
         esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &evt_set, ESP_AVRC_RN_VOLUME_CHANGE);
         assert(esp_avrc_tg_set_rn_evt_cap(&evt_set) == ESP_OK);
 
-        assert(esp_a2d_sink_init() == ESP_OK);
+        err = esp_a2d_sink_init();
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(BT_AV_TAG, "%s esp_a2d_sink_init failed: %s\n", __func__, esp_err_to_name(err));
+        }
+        assert(err == ESP_OK);
         esp_a2d_register_callback(&bt_app_a2d_cb);
         esp_a2d_sink_register_data_callback(bt_app_a2d_data_cb);
 
         /* set discoverable and connectable mode, wait to be connected */
         esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+        break;
+    }
+    case BT_APP_EVT_STACK_DOWN:
+    {
+        /* set not discoverable and not connectable mode */
+        esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
+
+        // Deinit avrc before deiniting a2d
+        assert(esp_avrc_ct_deinit() == ESP_OK);
+        esp_avrc_ct_register_callback(NULL);
+        assert(esp_avrc_tg_deinit() == ESP_OK);
+        esp_avrc_tg_register_callback(NULL);
+
+        // Unregister callbacks and deinit a2d sink
+        esp_a2d_sink_register_data_callback(NULL);
+        esp_a2d_register_callback(NULL);
+        assert(esp_a2d_sink_deinit() == ESP_OK);
+
+        // esp_avrc_rn_evt_cap_mask_t evt_set = {0};
+        // esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &evt_set, ESP_AVRC_RN_VOLUME_CHANGE);
+        // assert(esp_avrc_tg_set_rn_evt_cap(&evt_set) == ESP_OK);
+
+        // esp_bt_dev_set_device_name(LOCAL_DEVICE_NAME);
+        // esp_bt_gap_register_callback(bt_app_gap_cb);
         break;
     }
     /* others */
@@ -138,32 +178,49 @@ void bt_audio_init()
 {
     /* initialize NVS — it is used to store PHY calibration data */
     esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK(err);
 
+    static bool first = true;
     /*
      * This example only uses the functions of Classical Bluetooth.
      * So release the controller memory for Bluetooth Low Energy.
      */
-    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
+    if (first)
+    {
+        first = false;
+        ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
+    }
 
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-    if ((err = esp_bt_controller_init(&bt_cfg)) != ESP_OK) {
+    ESP_LOGI(BT_AV_TAG, "%s initializing controller\n", __func__);
+    if ((err = esp_bt_controller_init(&bt_cfg)) != ESP_OK)
+    {
         ESP_LOGE(BT_AV_TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name(err));
         return;
     }
-    if ((err = esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT)) != ESP_OK) {
+
+    ESP_LOGI(BT_AV_TAG, "%s enabling controller\n", __func__);
+    if ((err = esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT)) != ESP_OK)
+    {
         ESP_LOGE(BT_AV_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(err));
         return;
     }
-    if ((err = esp_bluedroid_init()) != ESP_OK) {
+
+    ESP_LOGI(BT_AV_TAG, "%s initializing bluedroid\n", __func__);
+    if ((err = esp_bluedroid_init()) != ESP_OK)
+    {
         ESP_LOGE(BT_AV_TAG, "%s initialize bluedroid failed: %s\n", __func__, esp_err_to_name(err));
         return;
     }
-    if ((err = esp_bluedroid_enable()) != ESP_OK) {
+
+    ESP_LOGI(BT_AV_TAG, "%s enabling bluedroid\n", __func__);
+    if ((err = esp_bluedroid_enable()) != ESP_OK)
+    {
         ESP_LOGE(BT_AV_TAG, "%s enable bluedroid failed: %s\n", __func__, esp_err_to_name(err));
         return;
     }
@@ -184,7 +241,52 @@ void bt_audio_init()
     pin_code[3] = '4';
     esp_bt_gap_set_pin(pin_type, 4, pin_code);
 
+    ESP_LOGI(BT_AV_TAG, "%s Starting bt app task\n", __func__);
     bt_app_task_start_up();
+
     /* bluetooth device name, connection mode and profile set up */
+    ESP_LOGI(BT_AV_TAG, "%s Dispatching bt_av_hdl_stack_evt: BT_APP_EVT_STACK_UP\n", __func__);
     bt_app_work_dispatch(bt_av_hdl_stack_evt, BT_APP_EVT_STACK_UP, NULL, 0, NULL);
+}
+
+void bt_audio_deinit()
+{
+    esp_err_t err;
+
+    ESP_LOGI(BT_AV_TAG, "%s Dispatching bt_av_hdl_stack_evt: BT_APP_EVT_STACK_DOWN\n", __func__);
+    bt_app_work_dispatch(bt_av_hdl_stack_evt, BT_APP_EVT_STACK_DOWN, NULL, 0, NULL);
+
+    ESP_LOGI(BT_AV_TAG, "%s Shutting down bluetooth app task\n", __func__);
+    bt_app_task_shut_down();
+
+    ESP_LOGI(BT_AV_TAG, "%s Shutting down I2S task\n", __func__);
+    bt_i2s_task_shut_down();
+
+    ESP_LOGI(BT_AV_TAG, "%s Disabling bluedroid\n", __func__);
+    if ((err = esp_bluedroid_disable()) != ESP_OK)
+    {
+        ESP_LOGE(BT_AV_TAG, "%s disable bluedroid failed: %s\n", __func__, esp_err_to_name(err));
+        return;
+    }
+
+    ESP_LOGI(BT_AV_TAG, "%s Deinitializing bluedroid\n", __func__);
+    if ((err = esp_bluedroid_deinit()) != ESP_OK)
+    {
+        ESP_LOGE(BT_AV_TAG, "%s deinitialize bluedroid failed: %s\n", __func__, esp_err_to_name(err));
+        return;
+    }
+
+    ESP_LOGI(BT_AV_TAG, "%s Disaabling controller\n", __func__);
+    if ((err = esp_bt_controller_disable()) != ESP_OK)
+    {
+        ESP_LOGE(BT_AV_TAG, "%s disable controller failed: %s\n", __func__, esp_err_to_name(err));
+        return;
+    }
+
+    ESP_LOGI(BT_AV_TAG, "%s Deinitializing controller\n", __func__);
+    if ((err = esp_bt_controller_deinit()) != ESP_OK)
+    {
+        ESP_LOGE(BT_AV_TAG, "%s deinitialize controller failed: %s\n", __func__, esp_err_to_name(err));
+        return;
+    }
 }

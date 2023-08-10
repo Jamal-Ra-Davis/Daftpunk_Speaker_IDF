@@ -14,10 +14,10 @@
 #include <stdio.h>
 
 /* log tag */
-#define BT_APP_CORE_TAG    "BT_APP_CORE"
+#define BT_APP_CORE_TAG "BT_APP_CORE"
 
 /* signal for `bt_app_work_dispatch` */
-#define BT_APP_SIG_WORK_DISPATCH    (0x01)
+#define BT_APP_SIG_WORK_DISPATCH (0x01)
 
 /**
  * @brief  handler for the dispatched work
@@ -25,14 +25,15 @@
  * @param [in] event  event id
  * @param [in] param  handler parameter
  */
-typedef void (* bt_app_cb_t) (uint16_t event, void *param);
+typedef void (*bt_app_cb_t)(uint16_t event, void *param);
 
 /* message to be sent */
-typedef struct {
-    uint16_t       sig;      /*!< signal to bt_app_task */
-    uint16_t       event;    /*!< message event id */
-    bt_app_cb_t    cb;       /*!< context switch callback */
-    void           *param;   /*!< parameter area needs to be last */
+typedef struct
+{
+    uint16_t sig;   /*!< signal to bt_app_task */
+    uint16_t event; /*!< message event id */
+    bt_app_cb_t cb; /*!< context switch callback */
+    void *param;    /*!< parameter area needs to be last */
 } bt_app_msg_t;
 
 /**
@@ -42,7 +43,7 @@ typedef struct {
  * @param [in]  p_src   pointer to source data
  * @param [in]  len     data length in byte
  */
-typedef void (* bt_app_copy_cb_t) (void *p_dest, void *p_src, int len);
+typedef void (*bt_app_copy_cb_t)(void *p_dest, void *p_src, int len);
 
 /**
  * @brief  work dispatcher for the application task

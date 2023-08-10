@@ -668,7 +668,7 @@ static void volume_set_by_controller(uint8_t volume);
 /* set volume by local host */
 static void volume_set_by_local_host(uint8_t volume);
 /* simulation volume change */
-//static void volume_change_simulation(void *arg);
+// static void volume_change_simulation(void *arg);
 /* a2dp event handler */
 static void bt_av_hdl_a2d_evt(uint16_t event, void *p_param);
 /* avrc controller event handler */
@@ -859,7 +859,7 @@ static void bt_av_hdl_a2d_evt(uint16_t event, void *p_param)
         {
             push_event(BT_AUDIO_DISCONNECTED, false);
             esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
-            bt_i2s_driver_uninstall();
+            // bt_i2s_driver_uninstall();
             bt_i2s_task_shut_down();
         }
         else if (a2d->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED)
