@@ -17,7 +17,7 @@
 #define FFT_BUCKETS 40
 #define PRINT_DELTA false
 #define FFT_TASK_TAG "FFT_Task"
-
+#define FFT_MIX_LEFT_RIGHT 0
 struct fft_double_buffer
 {
     float buf0[FFT_N];
@@ -93,7 +93,12 @@ void read_data_stream(const uint8_t *data, uint32_t length)
 
     for (int i = 0; i < sample_count; i += 2)
     {
+#if FFT_MIX_LEFT_RIGHT
+        int16_t data = (samples[i] >> 1) + (samples[i+1] >> 1);
+        fft_buf.fft_write[fft_buf.widx++] = (float)data;
+#else
         fft_buf.fft_write[fft_buf.widx++] = (float)samples[i];
+#endif
         if (fft_buf.widx >= FFT_N)
         {
             swap_fft_buffers(&fft_buf);
