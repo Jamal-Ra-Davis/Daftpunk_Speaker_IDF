@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -9,6 +10,7 @@
 #include "driver/i2c.h"
 #include "led_strip.h"
 #include "esp_log.h"
+#include "esp_sleep.h"
 
 #include "global_defines.h"
 #include "Events.h"
@@ -36,6 +38,45 @@
 
 system_state_t current_state = IDLE_STATE;
 system_state_t prev_state = BOOT_STATE;
+
+void enter_sleep()
+{
+    ESP_LOGI(MAIN_TAG, "Entering light sleep mode");
+
+    // Setup GPIO wake enable on volume- button
+    gpio_wakeup_enable(GPIO_NUM_34, GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+
+
+    // Disable bluetooth audio
+    bt_audio_deinit();
+
+    // Disable LED
+    rgb_states_t rgb_state = get_rgb_state();
+    set_rgb_state(RGB_MANUAL);
+    set_rgb_led(0, 0, 0);
+    gpio_set_level(GPIO_NUM_17, 0);
+
+    // Shutdown Audio Amp
+    //gpio_set_level(GPIO_NUM_4, 1);
+
+    // Blank display
+    buffer_clear(&display_buffer);
+    buffer_update(&display_buffer);
+    vTaskDelay(200 / portTICK_PERIOD_MS); // Wait for Vsync and bluetooth stack to settle out
+    esp_light_sleep_start();
+    //esp_deep_sleep_start();
+
+    ESP_LOGI(MAIN_TAG, "Exiting light sleep mode");
+    //gpio_set_level(GPIO_NUM_4, 0);
+    gpio_set_level(GPIO_NUM_17, 1);
+    set_rgb_state(rgb_state);
+
+    gpio_wakeup_disable(GPIO_NUM_34);    
+
+    // Reenable bluetooth audio
+    bt_audio_init();
+}
 
 // TODO: Move volume callbacks to Volume module (may want to rethink how it interacts with Bluetooth audio library)
 void volume_increase_cb(void *ctx)
@@ -87,6 +128,9 @@ static void pair_action(void *ctx)
     ESP_LOGI(MAIN_TAG, "Pair Button Pressed - Destroy a2dp sink");
     ESP_LOGI(MAIN_TAG, "Destroying a2dp sink...");
     // a2dp_sink.end(true);
+
+    // Test sleep logic
+    enter_sleep();
 }
 
 static void charge_start_action(void *ctx)
@@ -311,7 +355,7 @@ void app_main(void)
         buffer_clear(&display_buffer);
         draw_str("DEVBOARD_V0", i, 2, &display_buffer);
         buffer_update(&display_buffer);
-        vTaskDelay(20 / portTICK_PERIOD_MS);
+        vTaskDelay(30 / portTICK_PERIOD_MS);
     }
 
     vTaskDelay(200 / portTICK_PERIOD_MS);
@@ -321,7 +365,7 @@ void app_main(void)
         buffer_clear(&display_buffer);
         draw_str("DEVBOARD_V0", i, 2, &display_buffer);
         buffer_update(&display_buffer);
-        vTaskDelay(20 / portTICK_PERIOD_MS);
+        vTaskDelay(30 / portTICK_PERIOD_MS);
     }
 
     // Perfor I2C bus scan
@@ -346,6 +390,17 @@ void app_main(void)
 
     // Init timer thread manager and register timer threads
 
+    // De-assert Audio amp shutdown signal
+    gpio_config_t gp_cfg = {
+        .pin_bit_mask = GPIO_SEL_4,
+        .mode = GPIO_MODE_OUTPUT,
+    };
+    esp_ret = gpio_config(&gp_cfg);
+    ESP_ERROR_CHECK(esp_ret);
+
+    esp_ret = gpio_set_level(GPIO_NUM_4, 0);
+    ESP_ERROR_CHECK(ret);
+
     // Init Bluetooth Audio and register reader callback
     bt_audio_register_data_cb(read_data_stream);
     bt_audio_init();
@@ -355,6 +410,7 @@ void app_main(void)
     
     int cnt = 0;
     char idle_str[32] = {'\0'};
+    bool use_delay = true;
     while (1)
     {
         bool on_enter = false;
@@ -368,6 +424,7 @@ void app_main(void)
         {
         case IDLE_STATE:
         {
+            use_delay = false;
             if (on_enter)
             {
                 ESP_LOGI(MAIN_TAG, "Entering IDLE_STATE");
@@ -376,16 +433,71 @@ void app_main(void)
                     ESP_LOGE(MAIN_TAG, "Failed to start sleep timer");
                 }
             }
+            
+
             uint8_t soc;
             max17048_get_soc(&soc);
             buffer_clear(&display_buffer);
-            snprintf(idle_str, sizeof(idle_str), "SOC:%d%%", soc);
-            draw_str(idle_str, 0, 2, &display_buffer);
+            //snprintf(idle_str, sizeof(idle_str), "SOC:%d%%", soc);
+            //draw_str(idle_str, 0, 2, &display_buffer);
+
+            /*
+            // Arrow pattern
+            static int offset = 0;
+            uint8_t arrow_pattern[4] = {
+                0x99, 0x3C, 0x66, 0xC3
+            };
+            for (int i=0; i<FRAME_BUF_COLS; i++) {
+                for (int j=0; j<FRAME_BUF_ROWS; j++) {
+                    int idx = (i + offset) % 4;
+                    if (arrow_pattern[idx] & (1 << j)) {
+                        buffer_set_pixel(&display_buffer, i, j);
+                    }
+                }
+            }
+            offset++;
+            */
+
+            /*
+            // Random noise patten
+            for (int i=0; i<FRAME_BUF_COLS; i++) {
+                for (int j=0; j<FRAME_BUF_ROWS; j++) {
+                    if (rand() % 2 == 0) {
+                        buffer_set_pixel(&display_buffer, i, j);
+                    }
+                }
+            }
+            */
+
+            //Cylon eye
+            static bool right = true;
+            static int idx = 0;
+            for (int i=0; i<2; i++) {
+                for (int j=0; j<3; j++) {
+                    buffer_set_pixel(&display_buffer, idx+i, 2+j);
+                }
+            }
+            if (right) {
+                idx++;
+                if (idx == FRAME_BUF_COLS - 2) {
+                    right = false;
+                }
+            }
+            else {
+                idx--;
+                if (idx == 0) {
+                    right = true;
+                }
+            }
+            
+
             buffer_update(&display_buffer);
+            vTaskDelay(20 / portTICK_PERIOD_MS);
             break;
         }
         case STREAMING_STATE:
         {
+            use_delay = true;
             if (on_enter)
             {
                 ESP_LOGI(MAIN_TAG, "Entering STREAMING_STATE");
@@ -398,6 +510,7 @@ void app_main(void)
         }
         case SLEEP_STATE:
         {
+            use_delay = true;
             if (on_enter)
             {
                 ESP_LOGI(MAIN_TAG, "Entering SLEEP_STATE");
@@ -410,6 +523,8 @@ void app_main(void)
             break;
         }
 
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        if (use_delay) {
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+        }
     }
 }
