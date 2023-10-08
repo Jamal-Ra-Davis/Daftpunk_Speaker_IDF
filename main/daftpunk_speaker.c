@@ -24,6 +24,7 @@
 #include "bt_audio.h"
 #include "MAX17048.h"
 #include "rgb_manager.h"
+#include "flash_manager.h"
 
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
@@ -399,7 +400,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_ret);
 
     esp_ret = gpio_set_level(GPIO_NUM_4, 0);
-    ESP_ERROR_CHECK(ret);
+    ESP_ERROR_CHECK(esp_ret);
 
     // Init Bluetooth Audio and register reader callback
     bt_audio_register_data_cb(read_data_stream);
@@ -407,7 +408,9 @@ void app_main(void)
 
     TimerHandle_t sleep_timer = xTimerCreate("Sleep_Timer", MS_TO_TICKS(15000), pdFALSE, NULL, sleep_timer_func);
 
-    
+    flash_init();
+    play_sound();
+
     int cnt = 0;
     char idle_str[32] = {'\0'};
     bool use_delay = true;

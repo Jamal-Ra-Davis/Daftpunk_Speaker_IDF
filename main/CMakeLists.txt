@@ -11,8 +11,10 @@ idf_component_register(SRCS "Events.c"
                             "Font.c"
                             "drivers/MAX17048.c"
                             "rgb_manager.c"
+                            "flash/flash_manager.c"
                             "daftpunk_speaker.c"
                     INCLUDE_DIRS "."
                                  "bluetooth_audio"
                                  "FFT"
-                                 "drivers")
+                                 "drivers"
+                                 "flash")

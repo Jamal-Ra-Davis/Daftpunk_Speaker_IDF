@@ -659,8 +659,10 @@ static void bt_av_playback_changed(void);
 static void bt_av_play_pos_changed(void);
 /* notification event handler */
 static void bt_av_notify_evt_handler(uint8_t event_id, esp_avrc_rn_param_t *event_parameter);
+
+// TODO: Separate I2S init into separate module 
 /* installation for i2s */
-static void bt_i2s_driver_install(void);
+void bt_i2s_driver_install(void);
 /* uninstallation for i2s */
 static void bt_i2s_driver_uninstall(void);
 /* set volume by remote controller */
