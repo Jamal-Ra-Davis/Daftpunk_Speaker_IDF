@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include "sdkconfig.h"
 
 /* log tag */
 #define BT_APP_CORE_TAG "BT_APP_CORE"
@@ -45,6 +46,7 @@ typedef struct
  */
 typedef void (*bt_app_copy_cb_t)(void *p_dest, void *p_src, int len);
 
+#ifdef CONFIG_AUDIO_ENABLED
 /**
  * @brief  work dispatcher for the application task
  *
@@ -87,5 +89,13 @@ void bt_i2s_task_shut_down(void);
  * @return size if writteen ringbuffer successfully, 0 others
  */
 size_t write_ringbuf(const uint8_t *data, size_t size);
+#else 
+static inline bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void *p_params, int param_len, bt_app_copy_cb_t p_copy_cback) {return false;}
+static inline void bt_app_task_start_up(void) {}
+static inline void bt_app_task_shut_down(void) {}
+static inline void bt_i2s_task_start_up(void) {}
+static inline void bt_i2s_task_shut_down(void) {}
+static inline size_t write_ringbuf(const uint8_t *data, size_t size) {return size;}
+#endif
 
 #endif /* __BT_APP_CORE_H__ */

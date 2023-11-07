@@ -25,6 +25,7 @@
 #include "MAX17048.h"
 #include "rgb_manager.h"
 #include "flash_manager.h"
+#include "tcp_shell.h"
 
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
@@ -402,9 +403,14 @@ void app_main(void)
     esp_ret = gpio_set_level(GPIO_NUM_4, 0);
     ESP_ERROR_CHECK(esp_ret);
 
+#ifdef CONFIG_AUDIO_ENABLED
     // Init Bluetooth Audio and register reader callback
     bt_audio_register_data_cb(read_data_stream);
     bt_audio_init();
+#endif
+
+    // Init TCPShell
+    init_tcp_shell_task();
 
     TimerHandle_t sleep_timer = xTimerCreate("Sleep_Timer", MS_TO_TICKS(15000), pdFALSE, NULL, sleep_timer_func);
 
