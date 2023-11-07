@@ -13,7 +13,7 @@ extern void bt_i2s_driver_install(void);
 
 static esp_flash_t *example_init_ext_flash(void);
 
-#define AUDIO_BYTE_LEN 36544
+#define AUDIO_BYTE_LEN 664112 //36544
 static const uint8_t magic_seq[8] = {0xfa, 0xff, 0x00, 0x00, 0xf4, 0xff, 0x00, 0x00};
 static uint8_t rbuf[4096] __attribute__ ((aligned (4)));
 static esp_flash_t *flash = NULL;
@@ -40,6 +40,7 @@ void flash_init()
             break;
         }
     }
+    flash_check = true;
     flash_loaded = flash_check;
     if (!flash_loaded) {
         ESP_LOGE(FLASH_TAG, "Audio data not loaded in flash");
@@ -83,7 +84,7 @@ static esp_flash_t *example_init_ext_flash(void)
         .cs_id = 0,
         .cs_io_num = HSPI_IOMUX_PIN_NUM_CS,
         .io_mode = SPI_FLASH_DIO,
-        .speed = ESP_FLASH_5MHZ,
+        .speed = ESP_FLASH_26MHZ,
     };
 
     ESP_LOGI(FLASH_TAG, "Initializing external SPI Flash");
@@ -117,12 +118,13 @@ static esp_flash_t *example_init_ext_flash(void)
 
 void play_sound()
 {
+    ESP_LOGI(FLASH_TAG, "Flash Loaded: %d", (int)flash_loaded);
     if (flash == NULL) {
-        ESP_LOGE("Invalid handle to flash driver");
+        ESP_LOGE(FLASH_TAG, "Invalid handle to flash driver");
         return;
     }
     if (!flash_loaded) {
-        ESP_LOGE("Audio not loaded into flash, can't play sound");
+        ESP_LOGE(FLASH_TAG, "Audio not loaded into flash, can't play sound");
         return;
     }
     bt_i2s_task_start_up();
@@ -136,6 +138,7 @@ void play_sound()
     esp_err_t err;
     int bytes_left = AUDIO_BYTE_LEN;
     uint32_t flash_address = 0;
+    int cnt = 0;
     while (bytes_left > 0) {
         int len = 4096;
         if (bytes_left < 4096) {
@@ -149,8 +152,6 @@ void play_sound()
             continue;
         }
 
-
-
         //ESP_LOGI(FLASH_TAG, "%d (0x%X): 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X", flash_address,  flash_address, rbuf[0], rbuf[1], rbuf[2], rbuf[3], rbuf[4], rbuf[5], rbuf[6], rbuf[7]);
 
         for (int i = 0; i < len; i += 4)
@@ -162,21 +163,34 @@ void play_sound()
             *right = (int16_t)(*right * vol_scale);
         }
 
+        /*
         size_t bytes_written = write_ringbuf(rbuf, len);
         if (bytes_written != len) {
             ESP_LOGE(FLASH_TAG, "Failed to write to ringbuf");
         }
-        
+        */
+    
+        while (1) {
+            size_t bytes_written = write_ringbuf(rbuf, len);
+            if (bytes_written == len) {
+                break;
+            }
+            vTaskDelay(10 / portTICK_PERIOD_MS);
+        }
 
         bytes_left -= len;
         flash_address += len;
-        //vTaskDelay(10 / portTICK_PERIOD_MS);
+        /*
+        if (++cnt % 6 == 0) {
+            vTaskDelay(120 / portTICK_PERIOD_MS);
+        }
+        */
     }
     memset(rbuf, 0, sizeof(rbuf));
 
     for (int i=0; i<3; i++) {
         write_ringbuf(rbuf, sizeof(rbuf));
-        //vTaskDelay(10 / portTICK_PERIOD_MS);
+        //vTaskDelay(50 / portTICK_PERIOD_MS);
     }
     ESP_LOGI(FLASH_TAG, "Finshed loading audio from flash");
 }
