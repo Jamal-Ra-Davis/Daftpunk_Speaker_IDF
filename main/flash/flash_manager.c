@@ -75,6 +75,7 @@ void flash_init()
         *pos = '\0';
     }
     ESP_LOGI(FLASH_TAG, "Read from file: '%s'", line);
+    flash_loaded = true;
     return;
 
 
@@ -189,26 +190,21 @@ void play_sound()
     ESP_LOGI(FLASH_TAG, "Vol = %d", vol);
     float vol_scale = (float)vol / 0x7f;
 
-    esp_err_t err;
-    int bytes_left = AUDIO_BYTE_LEN;
-    uint32_t flash_address = 0;
-    int cnt = 0;
-    while (bytes_left > 0) {
-        int len = 4096;
-        if (bytes_left < 4096) {
-            len = bytes_left;
+    char file_path[64];
+    snprintf(file_path, sizeof(file_path), "%s/%s.bin", base_path, "audio0");
+    FILE *fp = fopen(file_path, "rb");
+    if (fp == NULL)
+    {
+        ESP_LOGE(FLASH_TAG, "Failed to open file (%s) for reading", file_path);
+        return;
+    }  
+    
+    while (1) {
+        size_t N = fread(rbuf, 1, sizeof(rbuf), fp);
+        if (N == 0) {
+            break;
         }
-
-        err = esp_flash_read(flash, (void *)rbuf, flash_address, sizeof(rbuf));
-        if (err != ESP_OK)
-        {
-            ESP_ERROR_CHECK(err);
-            continue;
-        }
-
-        //ESP_LOGI(FLASH_TAG, "%d (0x%X): 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X", flash_address,  flash_address, rbuf[0], rbuf[1], rbuf[2], rbuf[3], rbuf[4], rbuf[5], rbuf[6], rbuf[7]);
-
-        for (int i = 0; i < len; i += 4)
+        for (int i = 0; i < N; i += 4)
         {
             int16_t *left = (int16_t *)(&rbuf[i]);
             int16_t *right = (int16_t *)(&rbuf[i + 2]);
@@ -216,36 +212,16 @@ void play_sound()
             *left = (int16_t)(*left * vol_scale);
             *right = (int16_t)(*right * vol_scale);
         }
-
-        /*
-        size_t bytes_written = write_ringbuf(rbuf, len);
-        if (bytes_written != len) {
-            ESP_LOGE(FLASH_TAG, "Failed to write to ringbuf");
-        }
-        */
-    
         while (1) {
-            size_t bytes_written = write_ringbuf(rbuf, len);
-            if (bytes_written == len) {
+            size_t bytes_written = write_ringbuf(rbuf, N);
+            if (bytes_written == N) {
                 break;
             }
-            vTaskDelay(10 / portTICK_PERIOD_MS);
+            vTaskDelay(85 / portTICK_PERIOD_MS);
         }
-
-        bytes_left -= len;
-        flash_address += len;
-        /*
-        if (++cnt % 6 == 0) {
-            vTaskDelay(120 / portTICK_PERIOD_MS);
-        }
-        */
     }
-    memset(rbuf, 0, sizeof(rbuf));
 
-    for (int i=0; i<3; i++) {
-        write_ringbuf(rbuf, sizeof(rbuf));
-        //vTaskDelay(50 / portTICK_PERIOD_MS);
-    }
+    fclose(fp);
     ESP_LOGI(FLASH_TAG, "Finshed loading audio from flash");
 }
 
@@ -314,7 +290,6 @@ static void example_get_fatfs_usage(size_t *out_total_bytes, size_t *out_free_by
 
 FILE *fp = NULL;
 static char file_path[64];
-static char file_truc[32];
 uint32_t payload_size = 0;
 uint32_t bytes_remaining = 0;
 static void reset_nvm_data()

@@ -168,12 +168,6 @@ CONFIG_AUDIO_ENABLED=y
 # end of MTE Config
 
 #
-# Test Configuration
-#
-CONFIG_TESTOPTION_YAY=y
-# end of Test Configuration
-
-#
 # Example Connection Configuration
 #
 CONFIG_EXAMPLE_GPIO_RANGE_MIN=0
