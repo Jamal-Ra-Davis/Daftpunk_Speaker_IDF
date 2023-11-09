@@ -27,6 +27,7 @@ class MessageID(IntEnum):
     NVM_START = 4
     NVM_SEND_DATA = 5
     NVM_STOP = 6
+    NVM_ERASE_CHIP = 7
 
 def simple_crc16(start, buf):
     if (buf == None): 
@@ -110,18 +111,10 @@ def send_nvm_data(sock, file_path, payload):
                 end = start + PACKET_SIZE
             else:
                 end = start + bytes_remaining
-            #print(f"Bytes_Remaining: {bytes_remaining}, start: {start}, end: {end}")
-            #print(f"len: {len(buffer[start:end])}")
             bytes_remaining -= (end - start)
 
-            #s.sendall(payload[start:end])
-            #data = s.recv(1024)
-
             resp = send_message(sock, MessageID.NVM_SEND_DATA, payload[start:end], True)
-            #if (resp):
-            #    print(resp)
-            percent_complete = 100*(len(payload) - bytes_remaining) / len(payload)
-            #print(f"{int(percent_complete)}")
+            #percent_complete = 100*(len(payload) - bytes_remaining) / len(payload)
             bar()
         
 

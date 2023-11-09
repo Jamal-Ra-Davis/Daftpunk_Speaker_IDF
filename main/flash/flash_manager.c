@@ -362,3 +362,17 @@ int load_nvm_end()
     reset_nvm_data();
     return 0;
 }
+int nvm_erase_chip()
+{
+    if (flash == NULL) {
+        return -1;
+    }
+
+    esp_err_t err = esp_flash_erase_chip(flash);
+    if (err != ESP_OK)
+    {
+        ESP_ERROR_CHECK(err);
+        return -1;
+    }
+    return 0;
+}

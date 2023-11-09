@@ -1,6 +1,7 @@
 #include "tcp_shell.h"
 #include "freertos/semphr.h"
 #include "global_defines.h"
+#include "message_ids.h"
 
 #include <string.h>
 #include <sys/param.h>
@@ -34,26 +35,6 @@
 #define KEEPALIVE_COUNT CONFIG_EXAMPLE_KEEPALIVE_COUNT
 
 // Type Declarations
-typedef enum {ACK, NACK, TEST, ECHO, NVM_START, NVM_SEND_DATA, NVM_STOP} message_id_t;
-typedef struct __attribute__((packed))
-{
-    uint16_t message_id;
-    uint16_t payload_size;
-    uint8_t response_expected;
-} tcp_message_header_t;
-typedef struct __attribute__((packed))
-{
-    tcp_message_header_t header;
-    uint16_t crc_header;
-    uint16_t crc_payload;
-    uint8_t payload[0];
-} tcp_message_t;
-typedef struct __attribute__((packed))
-{
-    uint32_t payload_size;
-    uint16_t path_len;
-    char file_path[0];
-} nvm_start_message_t;
 
 // File Globals
 static SemaphoreHandle_t xDataReadySem;
@@ -381,6 +362,12 @@ static void tcp_handler_task(void *pvParameters)
                 ESP_LOGI(TCP_SHELL_TASK_TAG, "NVM_STOP MSG_ID");
 
                 ret = load_nvm_end();
+                resp->header.message_id = (ret == 0) ? ACK : NACK;
+                break;
+            case NVM_ERASE_CHIP:
+                ESP_LOGI(TCP_SHELL_TASK_TAG, "NVM_STOP MSG_ID");
+                ESP_LOGI(TCP_SHELL_TASK_TAG, "About to format NVM, this will take a while...");
+                ret = nvm_erase_chip();
                 resp->header.message_id = (ret == 0) ? ACK : NACK;
                 break;
             default:

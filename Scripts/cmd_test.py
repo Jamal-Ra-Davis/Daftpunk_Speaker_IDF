@@ -19,17 +19,25 @@ class TCPShell(cmd.Cmd):
         resp = socket_test.send_message(self.tcp_socket, socket_test.MessageID.ECHO, payload, True)
         if (resp):
             print(resp)
+
     def do_crc(self, arg):
         'Calculate CRC for given input'
         data = bytes(arg, 'utf-8')
         res = socket_test.simple_crc16(0, data)
         print(hex(res))
+
     def do_nvm_write(self, arg):
         file_name = arg.split()[0]
         print(file_name)
         file = open(file_name, "rb")
         file_bytes = file.read()
         socket_test.send_nvm_data(self.tcp_socket, file_name, file_bytes)
+
+    def do_nvm_erase_chip(self, arg):
+        'Fomat flash storage'
+        print("About to format NVM, this will take a while...")
+        print("NOTE: Device will need to be reset after formatting for filesystem to be created")
+        socket_test.send_message(self.tcp_socket, socket_test.MessageID.NVM_ERASE_CHIP, None, False)
 
     def do_exit(self, arg):
         'Stop recording, close the turtle window, and exit:  BYE'
