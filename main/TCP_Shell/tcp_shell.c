@@ -54,22 +54,12 @@ static void tcp_handler_task(void *pvParameters);
 // Public Functions
 int init_tcp_shell_task()
 {
-    ESP_ERROR_CHECK(nvs_flash_init());
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
-     * Read "Establishing Wi-Fi or Ethernet Connection" section in
-     * examples/protocols/README.md for more information about this function.
-     */
-    ESP_ERROR_CHECK(example_connect());
     xDataReadySem = xSemaphoreCreateBinary();
     if (xDataReadySem == NULL)
     {
         ESP_LOGE(TCP_SHELL_TASK_TAG, "Could not allocate data ready semaphore");
         return -1;
     }
-    shell_active = true;
 
 #ifdef CONFIG_EXAMPLE_IPV4
     xTaskCreate(tcp_server_task, TCP_SHELL_TASK_TAG, TCP_SHELL_TASK_STACK_SIZE, (void *)AF_INET, 5, NULL);
@@ -210,6 +200,16 @@ static void tcp_server_task(void *pvParameters)
     int keepCount = KEEPALIVE_COUNT;
     struct sockaddr_storage dest_addr;
 
+    ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
+     * Read "Establishing Wi-Fi or Ethernet Connection" section in
+     * examples/protocols/README.md for more information about this function.
+     */
+    ESP_ERROR_CHECK(example_connect());
+
     if (addr_family == AF_INET)
     {
         struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
@@ -262,6 +262,7 @@ static void tcp_server_task(void *pvParameters)
         goto CLEAN_UP;
     }
 
+    shell_active = true;
     while (1)
     {
 
