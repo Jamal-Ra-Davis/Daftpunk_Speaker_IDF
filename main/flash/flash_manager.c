@@ -30,8 +30,22 @@ static void example_list_data_partitions(void);
 static bool example_mount_fatfs(const char *partition_label);
 static void example_get_fatfs_usage(size_t *out_total_bytes, size_t *out_free_bytes);
 
+#define AUDIO_META_DATA_MAGIC 0xDEADBEEF
+#define AUDIO_NUM_SLOTS 8
+static char *audio_md_filename = "audio_md.bin"; 
+typedef struct __attribute__((packed)) {
+    bool active;
+    char file_name[32];
+} audio_meta_data_t;
+#define AUDIO_META_DATA_SIZE (AUDIO_NUM_SLOTS * sizeof(audio_meta_data_t) + 2 * sizeof(uint32_t))
+
+bool audio_meta_valid = false;
+audio_meta_data_t audio_meta_data[AUDIO_NUM_SLOTS] = {{.active = 0}};
+
+
 void flash_init()
 {
+    char filename[64];
     flash = example_init_ext_flash();
     if (flash == NULL)
     {
@@ -57,9 +71,11 @@ void flash_init()
     example_get_fatfs_usage(&bytes_total, &bytes_free);
     ESP_LOGI(FLASH_TAG, "FAT FS: %d kB total, %d kB free", bytes_total / 1024, bytes_free / 1024);
     
+    FILE *f;
+    /*
     // Open file for reading
     ESP_LOGI(FLASH_TAG, "Reading file");
-    FILE *f = fopen("/extflash/hello.txt", "rb");
+    f = fopen("/extflash/hello.txt", "rb");
     if (f == NULL)
     {
         ESP_LOGE(FLASH_TAG, "Failed to open file for reading");
@@ -76,6 +92,93 @@ void flash_init()
     }
     ESP_LOGI(FLASH_TAG, "Read from file: '%s'", line);
     flash_loaded = true;
+    */
+
+    // Load audio metadata file
+    sprintf(filename, "%s/%s", base_path, audio_md_filename);
+    f = fopen(filename, "rb");
+    //fclose(f);
+    //f = NULL;
+    if (f == NULL) {
+        ESP_LOGW(FLASH_TAG, "Failed to open file for reading, creating audio metadata file...");
+        f = fopen(filename, "wb");
+        if (f == NULL) {
+            ESP_LOGE(FLASH_TAG, "Failed to create audio metadata file");
+            return;
+        }
+
+        uint32_t magic = AUDIO_META_DATA_MAGIC;
+        size_t N = fwrite((uint8_t*)&magic, 1, sizeof(uint32_t), f);
+        if (N != sizeof(uint32_t)) {
+            ESP_LOGE(FLASH_TAG, "Failed to write magic header.");
+            fclose(f);
+            return;
+        }
+
+        N = fwrite((uint8_t*)audio_meta_data, 1, AUDIO_NUM_SLOTS*sizeof(audio_meta_data_t), f);
+        if (N != AUDIO_NUM_SLOTS*sizeof(audio_meta_data_t)) {
+            ESP_LOGE(FLASH_TAG, "Failed to write audio meta data.");
+            fclose(f);
+            return;
+        }
+
+        N = fwrite((uint8_t*)&magic, 1, sizeof(uint32_t), f);
+        if (N != sizeof(uint32_t)) {
+            ESP_LOGE(FLASH_TAG, "Failed to write magic footer.");
+            fclose(f);
+            return;
+        }
+        ESP_LOGW(FLASH_TAG, "Successfully created audio metadata file");
+        
+        // Readout data
+        fclose(f);
+        f = NULL;
+        f = fopen(filename, "rb");
+        if (f == NULL) {
+            ESP_LOGW(FLASH_TAG, "Failed to open file for reading");
+            return;
+        }
+        N = fread(rbuf, 1, sizeof(rbuf), f);
+        ESP_LOGI(FLASH_TAG, "%d bytes read from %s", N, filename);
+    }
+    else {
+        // File exists
+        uint32_t *magic;
+        size_t N;
+
+        N = fread(rbuf, 1, sizeof(rbuf), f);
+        ESP_LOGI(FLASH_TAG, "%d bytes read from %s", N, filename);
+        size_t expected_size = 2 * sizeof(uint32_t) + AUDIO_NUM_SLOTS*sizeof(audio_meta_data_t);
+        if (N != expected_size) {
+            ESP_LOGE(FLASH_TAG, "Expected %d bytes from %s, but only got %d bytes", expected_size, filename, N);
+            fclose(f);
+            return;
+        }
+        fclose(f);
+        
+        magic = (uint32_t*)&rbuf[0];
+        if (*magic != AUDIO_META_DATA_MAGIC) {
+            ESP_LOGE(FLASH_TAG, "Invalid magic header (0x%08X) for audio meta data", *magic);
+            return;
+        }
+        magic = (uint32_t*)&rbuf[expected_size - sizeof(uint32_t)];
+        if (*magic != AUDIO_META_DATA_MAGIC) {
+            ESP_LOGE(FLASH_TAG, "Invalid magic footer (0x%08X) for audio meta data", *magic);
+            return;
+        }
+
+        memcpy(audio_meta_data, &rbuf[sizeof(uint32_t)], AUDIO_NUM_SLOTS*sizeof(audio_meta_data_t));
+        for (int i=0; i<AUDIO_NUM_SLOTS; i++) {
+            if (audio_meta_data[i].active) {
+                ESP_LOGI(FLASH_TAG, "Audio Data Slot %d, filename = %s", i, audio_meta_data[i].file_name);
+            }
+            else {
+                ESP_LOGI(FLASH_TAG, "Audio Data Slot %d, INACTIVE", i);
+            }
+        }
+        return;
+    }
+    audio_meta_valid = true;
     return;
 
 
