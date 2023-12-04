@@ -375,7 +375,66 @@ void play_sound()
     ESP_LOGI(FLASH_TAG, "Finshed loading audio from flash");
 }
 
+void play_audio_asset(uint8_t audio_id)
+{
+    if (audio_id >= AUDIO_NUM_SLOTS) {
+        ESP_LOGE(FLASH_TAG, "Invalid audio ID (%u), must be between 0 and %u", audio_id, AUDIO_NUM_SLOTS);
+        return;
+    }
+    if (!audio_meta_data[audio_id].active) {
+        ESP_LOGE(FLASH_TAG, "No asset present at audio ID (%u)", audio_id);
+        return;
+    }
 
+    static bool first = true;
+
+    if (first) {
+        first = false;
+        bt_i2s_task_start_up();
+#ifdef CONFIG_AUDIO_ENABLED
+        bt_i2s_driver_install();
+#endif
+    }
+
+    uint8_t vol = bt_audio_get_volume();
+    vol = 15;
+    ESP_LOGI(FLASH_TAG, "Vol = %d", vol);
+    float vol_scale = (float)vol / 0x7f;
+
+    char file_path[64];
+    snprintf(file_path, sizeof(file_path), "%s/%s", base_path, audio_meta_data[audio_id].file_name);
+    FILE *fp = fopen(file_path, "rb");
+    if (fp == NULL)
+    {
+        ESP_LOGE(FLASH_TAG, "Failed to open file (%s) for reading", file_path);
+        return;
+    }  
+    
+    while (1) {
+        size_t N = fread(rbuf, 1, sizeof(rbuf), fp);
+        if (N == 0) {
+            break;
+        }
+        for (int i = 0; i < N; i += 4)
+        {
+            int16_t *left = (int16_t *)(&rbuf[i]);
+            int16_t *right = (int16_t *)(&rbuf[i + 2]);
+
+            *left = (int16_t)(*left * vol_scale);
+            *right = (int16_t)(*right * vol_scale);
+        }
+        while (1) {
+            size_t bytes_written = write_ringbuf(rbuf, N);
+            if (bytes_written == N) {
+                break;
+            }
+            vTaskDelay(85 / portTICK_PERIOD_MS);
+        }
+    }
+
+    fclose(fp);
+    ESP_LOGI(FLASH_TAG, "Finshed loading audio from flash");
+}
 
 
 static const esp_partition_t *example_add_partition(esp_flash_t *ext_flash, const char *partition_label)

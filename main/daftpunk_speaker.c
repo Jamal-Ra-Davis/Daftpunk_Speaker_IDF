@@ -415,7 +415,14 @@ void app_main(void)
     TimerHandle_t sleep_timer = xTimerCreate("Sleep_Timer", MS_TO_TICKS(15000), pdFALSE, NULL, sleep_timer_func);
 
     flash_init();
-    play_sound();
+    //play_sound();
+
+    for (int i=0; i<5; i++) {
+        play_audio_asset(0);
+        vTaskDelay(300 / portTICK_PERIOD_MS);
+    }
+    play_audio_asset(1);
+
 
     int cnt = 0;
     char idle_str[32] = {'\0'};

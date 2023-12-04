@@ -4,6 +4,7 @@
 
 void flash_init();
 void play_sound();
+void play_audio_asset(uint8_t audio_id);
 esp_flash_t *get_flash_handle();
 
 int load_audio_start(uint8_t audio_id, char *filename, uint16_t filename_len, uint32_t payload_len);
