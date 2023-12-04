@@ -27,11 +27,28 @@ class TCPShell(cmd.Cmd):
         print(hex(res))
 
     def do_nvm_write(self, arg):
+        'Writes specificed file to NVM on device: nvm_write <file_path>'
         file_name = arg.split()[0]
         print(file_name)
         file = open(file_name, "rb")
         file_bytes = file.read()
+        file.close()
         socket_test.send_nvm_data(self.tcp_socket, file_name, file_bytes)
+
+    def do_write_audio_asset(self, arg):
+        'Writes specificed audio file to NVM on device: write_audio_asset <Audio ID (0 - 7)> <file_path> <filename_dev>'
+        audio_id = int(arg.split()[0])
+        file_name = arg.split()[1]
+        file_name_dev = arg.split()[2]
+        print(f"Audio ID: {audio_id}, File Name: {file_name}, File Name Device: {file_name_dev}")
+        file = open(file_name, "rb")
+        file_bytes = file.read()
+        file.close()
+        try:
+            socket_test.send_audio_data(self.tcp_socket, audio_id, file_name_dev, file_bytes)
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+            
 
     def do_nvm_erase_chip(self, arg):
         'Fomat flash storage'

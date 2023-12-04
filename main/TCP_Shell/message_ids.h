@@ -10,6 +10,7 @@ typedef enum {
     NVM_SEND_DATA, 
     NVM_STOP,
     NVM_ERASE_CHIP,
+    AUDIO_LOAD_START,
 } message_id_t;
 
 typedef struct __attribute__((packed))
@@ -31,3 +32,10 @@ typedef struct __attribute__((packed))
     uint16_t path_len;
     char file_path[0];
 } nvm_start_message_t;
+typedef struct __attribute__((packed))
+{
+    uint32_t payload_size;
+    uint8_t audio_id;
+    uint16_t file_name_len;
+    char file_name[0];
+} audio_load_start_message_t;

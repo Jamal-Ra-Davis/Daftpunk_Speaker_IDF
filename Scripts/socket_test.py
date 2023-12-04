@@ -28,6 +28,7 @@ class MessageID(IntEnum):
     NVM_SEND_DATA = 5
     NVM_STOP = 6
     NVM_ERASE_CHIP = 7
+    AUDIO_LOAD_START = 8
 
 def simple_crc16(start, buf):
     if (buf == None): 
@@ -83,6 +84,28 @@ def send_message(sock, id: MessageID, payload, response_expected: bool):
         return msg
     return None
 
+def send_nvm_data_loop(sock, payload):
+    PACKET_SIZE = 1024#256
+    
+    # Loop and send data
+    bytes_remaining = len(payload)
+    chunks = bytes_remaining // PACKET_SIZE
+    if (bytes_remaining % PACKET_SIZE > 0):
+        chunks += 1
+
+    with alive_progress.alive_bar(chunks) as bar:
+        while (bytes_remaining > 0):
+            start = len(payload) - bytes_remaining
+            if (start + PACKET_SIZE < len(payload)):
+                end = start + PACKET_SIZE
+            else:
+                end = start + bytes_remaining
+            bytes_remaining -= (end - start)
+
+            resp = send_message(sock, MessageID.NVM_SEND_DATA, payload[start:end], True)
+            #percent_complete = 100*(len(payload) - bytes_remaining) / len(payload)
+            bar()
+
 def send_nvm_data(sock, file_path, payload):
     PACKET_SIZE = 1024#256
 
@@ -97,6 +120,51 @@ def send_nvm_data(sock, file_path, payload):
     if (resp):
         print(resp)
     
+    print(f"Transferring {len(payload)} bytes from {file_path} to device")
+    
+    send_nvm_data_loop(sock, payload)
+    '''
+    # Loop and send data
+    bytes_remaining = len(payload)
+    chunks = bytes_remaining // PACKET_SIZE
+    if (bytes_remaining % PACKET_SIZE > 0):
+        chunks += 1
+
+    with alive_progress.alive_bar(chunks) as bar:
+        while (bytes_remaining > 0):
+            start = len(payload) - bytes_remaining
+            if (start + PACKET_SIZE < len(payload)):
+                end = start + PACKET_SIZE
+            else:
+                end = start + bytes_remaining
+            bytes_remaining -= (end - start)
+
+            resp = send_message(sock, MessageID.NVM_SEND_DATA, payload[start:end], True)
+            #percent_complete = 100*(len(payload) - bytes_remaining) / len(payload)
+            bar()
+    '''
+        
+def send_audio_data(sock, audio_id, filename_dev, payload):
+    if (isinstance(audio_id, int) == False):
+        raise Exception(f"asset_id ({audio_id}), must be an integer")
+    if (audio_id < 0 or audio_id >= 8):
+        raise Exception(f"Invalid asset_id ({audio_id}), must be an integer between 0 and 7")
+    
+    print("Payload:", payload[:256])
+
+    # Send start command
+    filename_bytes = bytes(filename_dev, "utf-8")
+    filename_len = len(filename_bytes)
+    message_payload = struct.pack("<LBH", len(payload), audio_id, filename_len)
+    message_payload += filename_bytes
+    resp = send_message(sock, MessageID.AUDIO_LOAD_START, message_payload, True)
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.ACK):
+        raise Exception("Device did not ACK back")
+    
+    send_nvm_data_loop(sock, payload)
+    '''
     # Loop and send data
     bytes_remaining = len(payload)
     chunks = bytes_remaining // PACKET_SIZE
@@ -116,7 +184,8 @@ def send_nvm_data(sock, file_path, payload):
             resp = send_message(sock, MessageID.NVM_SEND_DATA, payload[start:end], True)
             #percent_complete = 100*(len(payload) - bytes_remaining) / len(payload)
             bar()
-        
+    '''
+
 
     # Send End command
     resp = send_message(sock, MessageID.NVM_STOP, None, True)

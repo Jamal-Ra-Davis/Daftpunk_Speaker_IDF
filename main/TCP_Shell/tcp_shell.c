@@ -371,6 +371,15 @@ static void tcp_handler_task(void *pvParameters)
                 ret = nvm_erase_chip();
                 resp->header.message_id = (ret == 0) ? ACK : NACK;
                 break;
+            case AUDIO_LOAD_START:
+                ESP_LOGI(TCP_SHELL_TASK_TAG, "AUDIO_LOAD_START MSG_ID");
+                audio_load_start_message_t *audio_load_start_msg = (audio_load_start_message_t*)msg->payload;
+                ESP_LOGI(TCP_SHELL_TASK_TAG, "payload_size: %u, audio_id: %u, file_name_len: %u, file_name: %s",
+                    audio_load_start_msg->payload_size, audio_load_start_msg->audio_id, audio_load_start_msg->file_name_len, audio_load_start_msg->file_name);
+
+                ret = load_audio_start(audio_load_start_msg->audio_id, audio_load_start_msg->file_name, audio_load_start_msg->file_name_len, audio_load_start_msg->payload_size);
+                resp->header.message_id = (ret == 0) ? ACK : NACK;
+                break;
             default:
                 break;
         }

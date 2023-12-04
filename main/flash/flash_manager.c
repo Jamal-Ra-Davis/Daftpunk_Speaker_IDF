@@ -42,6 +42,53 @@ typedef struct __attribute__((packed)) {
 bool audio_meta_valid = false;
 audio_meta_data_t audio_meta_data[AUDIO_NUM_SLOTS] = {{.active = 0}};
 
+int write_audio_metadata()
+{
+    char md_file_path[64];
+    sprintf(md_file_path, "%s/%s", base_path, audio_md_filename);
+
+    FILE *f = fopen(md_file_path, "wb");
+    if (f == NULL) {
+        ESP_LOGE(FLASH_TAG, "Failed to create audio metadata file");
+        return -1; 
+    }
+
+    uint32_t magic = AUDIO_META_DATA_MAGIC;
+    size_t N = fwrite((uint8_t*)&magic, 1, sizeof(uint32_t), f);
+    if (N != sizeof(uint32_t)) {
+        ESP_LOGE(FLASH_TAG, "Failed to write magic header.");
+        fclose(f);
+        return -1;
+    }
+
+    N = fwrite((uint8_t*)audio_meta_data, 1, AUDIO_NUM_SLOTS*sizeof(audio_meta_data_t), f);
+    if (N != AUDIO_NUM_SLOTS*sizeof(audio_meta_data_t)) {
+        ESP_LOGE(FLASH_TAG, "Failed to write audio meta data.");
+        fclose(f);
+        return -1;
+    }
+
+    N = fwrite((uint8_t*)&magic, 1, sizeof(uint32_t), f);
+    if (N != sizeof(uint32_t)) {
+        ESP_LOGE(FLASH_TAG, "Failed to write magic footer.");
+        fclose(f);
+        return -1;
+    }
+    ESP_LOGW(FLASH_TAG, "Successfully created audio metadata file");
+    
+    // Readout data
+    fclose(f);
+    f = NULL;
+    f = fopen(md_file_path, "rb");
+    if (f == NULL) {
+        ESP_LOGW(FLASH_TAG, "Failed to open file for reading");
+        return -1;
+    }
+    N = fread(rbuf, 1, sizeof(rbuf), f);
+    ESP_LOGI(FLASH_TAG, "%d bytes read from %s", N, md_file_path);
+    fclose(f);
+    return 0;
+}
 
 void flash_init()
 {
@@ -391,10 +438,18 @@ static void example_get_fatfs_usage(size_t *out_total_bytes, size_t *out_free_by
     }
 }
 
+typedef struct {
+    bool active;
+    char file_name[32];
+    uint8_t audio_id;
+} load_audio_data_t;
+
 FILE *fp = NULL;
 static char file_path[64];
 uint32_t payload_size = 0;
 uint32_t bytes_remaining = 0;
+load_audio_data_t audio_data_cache = {.active = false};
+
 static void reset_nvm_data()
 {
     if (fp) {
@@ -403,6 +458,43 @@ static void reset_nvm_data()
     }
     payload_size = 0;
     bytes_remaining = 0;
+    audio_data_cache.active = false;
+}
+int load_audio_start(uint8_t audio_id, char *filename, uint16_t filename_len, uint32_t payload_len)
+{
+    if (audio_id >= AUDIO_NUM_SLOTS) {
+        ESP_LOGE(FLASH_TAG, "Invalid audio id: %d, must be between 0 and %d", audio_id, AUDIO_NUM_SLOTS-1);
+        return -1;
+    }
+    if (filename == NULL) {
+        ESP_LOGE(FLASH_TAG, "Invalid filename, cannot be NULL");
+        return -1;
+    }
+
+    if (fp) {
+        ESP_LOGE(FLASH_TAG, "File already open, cannot open new one");
+        return -1;
+    }
+
+    snprintf(file_path, sizeof(file_path), "%s/%s", base_path, filename);
+    ESP_LOGI(FLASH_TAG, "Opening Audio NVM File for writing: %s", file_path);
+
+    fp = fopen(file_path, "wb");
+    if (fp == NULL)
+    {
+        ESP_LOGE(FLASH_TAG, "Failed to open file for writing");
+        return -1;
+    }
+
+    payload_size = payload_len;
+    bytes_remaining = payload_len;
+    
+    snprintf(audio_data_cache.file_name, sizeof(audio_data_cache.file_name), "%s", filename);
+    audio_data_cache.audio_id = audio_id;
+    audio_data_cache.active = true;
+
+    ESP_LOGI(FLASH_TAG, "payload_size: %u, Bytes Remaining: %u", payload_size, bytes_remaining);
+    return 0;  
 }
 int load_nvm_start(char *filename, uint16_t path_len, uint32_t payload_len)
 {
@@ -443,6 +535,7 @@ int load_nvm_chunk(uint8_t *payload, uint32_t chunk_len)
 int load_nvm_end()
 {
     ESP_LOGI(FLASH_TAG, "Closing NVM File");
+    bool loading_audio = audio_data_cache.active;
     reset_nvm_data();
 
     uint8_t flash_data[256];
@@ -462,6 +555,18 @@ int load_nvm_end()
             flash_data[i], flash_data[i + 1], flash_data[i + 2], flash_data[i + 3], 
             flash_data[i + 4], flash_data[i + 5], flash_data[i + 6], flash_data[i + 7]);
     }
+
+    if (loading_audio) {
+        ESP_LOGI(FLASH_TAG, "Updating audio metadata");
+        size_t N = sizeof(audio_meta_data[audio_data_cache.audio_id].file_name);
+        snprintf(audio_meta_data[audio_data_cache.audio_id].file_name, N, "%s", audio_data_cache.file_name);
+        audio_meta_data[audio_data_cache.audio_id].active = true;
+
+        if (write_audio_metadata() < 0) {
+            ESP_LOGE(FLASH_TAG, "Failed to write audio metadata");
+        }
+    }
+
     reset_nvm_data();
     return 0;
 }
