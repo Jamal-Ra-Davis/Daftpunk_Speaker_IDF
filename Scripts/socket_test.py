@@ -29,6 +29,7 @@ class MessageID(IntEnum):
     NVM_STOP = 6
     NVM_ERASE_CHIP = 7
     AUDIO_LOAD_START = 8
+    AUDIO_META_DATA = 9
 
 def simple_crc16(start, buf):
     if (buf == None): 
@@ -106,6 +107,12 @@ def send_nvm_data_loop(sock, payload):
             #percent_complete = 100*(len(payload) - bytes_remaining) / len(payload)
             bar()
 
+    # Send End command
+    resp = send_message(sock, MessageID.NVM_STOP, None, True)
+    if (resp):
+        print(resp)
+        print()
+
 def send_nvm_data(sock, file_path, payload):
     PACKET_SIZE = 1024#256
 
@@ -164,34 +171,25 @@ def send_audio_data(sock, audio_id, filename_dev, payload):
         raise Exception("Device did not ACK back")
     
     send_nvm_data_loop(sock, payload)
-    '''
-    # Loop and send data
-    bytes_remaining = len(payload)
-    chunks = bytes_remaining // PACKET_SIZE
-    if (bytes_remaining % PACKET_SIZE > 0):
-        chunks += 1
 
-    print(f"Transferring {bytes_remaining} bytes from {file_path} to device")
-    with alive_progress.alive_bar(chunks) as bar:
-        while (bytes_remaining > 0):
-            start = len(payload) - bytes_remaining
-            if (start + PACKET_SIZE < len(payload)):
-                end = start + PACKET_SIZE
-            else:
-                end = start + bytes_remaining
-            bytes_remaining -= (end - start)
-
-            resp = send_message(sock, MessageID.NVM_SEND_DATA, payload[start:end], True)
-            #percent_complete = 100*(len(payload) - bytes_remaining) / len(payload)
-            bar()
-    '''
-
-
-    # Send End command
-    resp = send_message(sock, MessageID.NVM_STOP, None, True)
+def get_audio_metadata(sock):
+    resp = send_message(sock, MessageID.AUDIO_META_DATA, None, True)
     if (resp):
         print(resp)
-        print()
+    if (resp.message_id != MessageID.AUDIO_META_DATA):
+        raise Exception("Invalid response")
+    metadata_list = []
+    for i in range(8):
+        size = 33
+        raw_data = resp.payload[i*size : (i+1)*size]
+        active, filename = struct.unpack('<?32s', raw_data)
+        filename = filename.decode().split('\0')[0]
+        if (active):
+            metadata_list.append(filename)
+        else:
+            metadata_list.append(None)    
+    return metadata_list
+
 
 if __name__ == '__main__':
     HOST = "192.168.0.226"

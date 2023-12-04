@@ -48,6 +48,14 @@ class TCPShell(cmd.Cmd):
             socket_test.send_audio_data(self.tcp_socket, audio_id, file_name_dev, file_bytes)
         except Exception as e:
             print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_get_audio_metadata(self, arg):
+        'Returns audio meta data: get_audio_metadata'
+        try:
+            data = socket_test.get_audio_metadata(self.tcp_socket)
+            print(data)
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
             
 
     def do_nvm_erase_chip(self, arg):

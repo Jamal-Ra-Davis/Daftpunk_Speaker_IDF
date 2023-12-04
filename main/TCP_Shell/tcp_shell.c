@@ -380,6 +380,11 @@ static void tcp_handler_task(void *pvParameters)
                 ret = load_audio_start(audio_load_start_msg->audio_id, audio_load_start_msg->file_name, audio_load_start_msg->file_name_len, audio_load_start_msg->payload_size);
                 resp->header.message_id = (ret == 0) ? ACK : NACK;
                 break;
+            case AUDIO_META_DATA:
+                ESP_LOGI(TCP_SHELL_TASK_TAG, "AUDIO_META_DATA MSG_ID");
+                ret = get_audio_metadata(resp->payload, &resp->header.payload_size);
+                resp->header.message_id = (ret == 0) ? AUDIO_META_DATA : NACK;
+                break;
             default:
                 break;
         }

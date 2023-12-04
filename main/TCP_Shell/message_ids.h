@@ -11,6 +11,7 @@ typedef enum {
     NVM_STOP,
     NVM_ERASE_CHIP,
     AUDIO_LOAD_START,
+    AUDIO_META_DATA,
 } message_id_t;
 
 typedef struct __attribute__((packed))

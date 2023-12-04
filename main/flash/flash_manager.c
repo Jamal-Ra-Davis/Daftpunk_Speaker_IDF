@@ -584,3 +584,18 @@ int nvm_erase_chip()
     }
     return 0;
 }
+
+int get_audio_metadata(uint8_t *buf, uint16_t *payload_size)
+{
+    if (!buf) {
+        ESP_LOGE(FLASH_TAG, "Invalid buffer pointer");
+        return -1;
+    }
+    if (!payload_size) {
+        ESP_LOGE(FLASH_TAG, "Invalid size pointer");
+        return -1;
+    }
+    memcpy(buf, audio_meta_data, sizeof(audio_meta_data));
+    *payload_size = sizeof(audio_meta_data);
+    return 0;
+}
