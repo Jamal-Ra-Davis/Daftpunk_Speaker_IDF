@@ -30,6 +30,7 @@ class MessageID(IntEnum):
     NVM_ERASE_CHIP = 7
     AUDIO_LOAD_START = 8
     AUDIO_META_DATA = 9
+    PLAY_AUDIO_ASSET = 10
 
 def simple_crc16(start, buf):
     if (buf == None): 
@@ -190,6 +191,18 @@ def get_audio_metadata(sock):
             metadata_list.append(None)    
     return metadata_list
 
+def play_audio_asset(sock, audio_id):
+    if (isinstance(audio_id, int) == False):
+        raise Exception(f"asset_id ({audio_id}), must be an integer")
+    if (audio_id < 0 or audio_id >= 8):
+        raise Exception(f"Invalid asset_id ({audio_id}), must be an integer between 0 and 7")
+    
+    message_payload = struct.pack("<B", audio_id)
+    resp = send_message(sock, MessageID.PLAY_AUDIO_ASSET, message_payload, True)
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.ACK):
+        raise Exception("Device did not ACK back")
 
 if __name__ == '__main__':
     HOST = "192.168.0.226"

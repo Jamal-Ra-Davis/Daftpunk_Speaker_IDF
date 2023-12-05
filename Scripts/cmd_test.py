@@ -57,6 +57,14 @@ class TCPShell(cmd.Cmd):
         except Exception as e:
             print(f"Error: {e} - ({type(e).__name__})")
             
+    def do_play_audio_asset(self, arg):
+        'Writes specificed audio file to NVM on device: plays_audio_asset <Audio ID (0 - 7)>'
+        audio_id = int(arg.split()[0])
+        print(f"Audio ID: {audio_id}")
+        try:
+            socket_test.play_audio_asset(self.tcp_socket, audio_id)
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
 
     def do_nvm_erase_chip(self, arg):
         'Fomat flash storage'

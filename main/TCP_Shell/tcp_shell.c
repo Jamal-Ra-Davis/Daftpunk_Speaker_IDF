@@ -385,6 +385,12 @@ static void tcp_handler_task(void *pvParameters)
                 ret = get_audio_metadata(resp->payload, &resp->header.payload_size);
                 resp->header.message_id = (ret == 0) ? AUDIO_META_DATA : NACK;
                 break;
+            case PLAY_AUDIO_ASSET:
+                ESP_LOGI(TCP_SHELL_TASK_TAG, "PLAY_AUDIO_ASSET MSG_ID");
+                play_audio_asset_message_t *play_audio_asset_msg = (play_audio_asset_message_t*)msg->payload;
+                ret = play_audio_asset(play_audio_asset_msg->audio_id);
+                resp->header.message_id = (ret == 0) ? ACK : NACK;
+                break;
             default:
                 break;
         }

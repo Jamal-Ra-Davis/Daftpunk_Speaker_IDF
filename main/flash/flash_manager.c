@@ -368,15 +368,15 @@ void play_sound()
     ESP_LOGI(FLASH_TAG, "Finshed loading audio from flash");
 }
 
-void play_audio_asset(uint8_t audio_id)
+int play_audio_asset(uint8_t audio_id)
 {
     if (audio_id >= AUDIO_NUM_SLOTS) {
         ESP_LOGE(FLASH_TAG, "Invalid audio ID (%u), must be between 0 and %u", audio_id, AUDIO_NUM_SLOTS);
-        return;
+        return -1;
     }
     if (!audio_meta_data[audio_id].active) {
         ESP_LOGE(FLASH_TAG, "No asset present at audio ID (%u)", audio_id);
-        return;
+        return -1;
     }
 
     static bool first = true;
@@ -397,7 +397,7 @@ void play_audio_asset(uint8_t audio_id)
     if (fp == NULL)
     {
         ESP_LOGE(FLASH_TAG, "Failed to open file (%s) for reading", file_path);
-        return;
+        return -1;
     }  
     
     while (1) {
@@ -424,6 +424,7 @@ void play_audio_asset(uint8_t audio_id)
 
     fclose(fp);
     ESP_LOGI(FLASH_TAG, "Finshed loading audio from flash");
+    return 0;
 }
 
 
