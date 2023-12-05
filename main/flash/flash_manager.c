@@ -4,14 +4,10 @@
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
 #include "flash_manager.h"
-#include "bt_app_core.h"
 #include "bt_audio.h"
+#include "i2s_task.h"
 
 #define FLASH_TAG "FLASH_MANAGER"
-
-#ifdef CONFIG_AUDIO_ENABLED
-extern void bt_i2s_driver_install(void);
-#endif
 
 static esp_flash_t *example_init_ext_flash(void);
 
@@ -331,9 +327,6 @@ void play_sound()
         return;
     }
     bt_i2s_task_start_up();
-#ifdef CONFIG_AUDIO_ENABLED
-    bt_i2s_driver_install();
-#endif
 
     uint8_t vol = bt_audio_get_volume();
     vol = 15;
@@ -391,9 +384,6 @@ void play_audio_asset(uint8_t audio_id)
     if (first) {
         first = false;
         bt_i2s_task_start_up();
-#ifdef CONFIG_AUDIO_ENABLED
-        bt_i2s_driver_install();
-#endif
     }
 
     uint8_t vol = bt_audio_get_volume();

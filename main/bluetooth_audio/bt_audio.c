@@ -21,6 +21,7 @@
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
 #include "driver/i2s.h"
+#include "i2s_task.h"
 
 // Bluetooth stuff
 /* device name */

@@ -26,6 +26,7 @@
 #include "rgb_manager.h"
 #include "flash_manager.h"
 #include "tcp_shell.h"
+#include "esp_sntp.h"
 
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
@@ -417,11 +418,32 @@ void app_main(void)
     flash_init();
     //play_sound();
 
+    
     for (int i=0; i<5; i++) {
         play_audio_asset(0);
         vTaskDelay(300 / portTICK_PERIOD_MS);
     }
     play_audio_asset(1);
+    
+
+    time_t now;
+    char strftime_buf[64];
+    struct tm timeinfo;
+
+    time(&now);
+    // Set timezone to China Standard Time
+    setenv("TZ", "CST-8", 1);
+    tzset();
+
+    localtime_r(&now, &timeinfo);
+    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+    ESP_LOGI(MAIN_TAG, "The current date/time in Shanghai is: %s", strftime_buf);
+
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+    ESP_LOGI(MAIN_TAG, "The current date/time in Shanghai is: %s", strftime_buf);
 
 
     int cnt = 0;
