@@ -25,6 +25,7 @@
 #include "MAX17048.h"
 #include "rgb_manager.h"
 #include "flash_manager.h"
+#include "audio_manager.h"
 #include "tcp_shell.h"
 #include "esp_sntp.h"
 
@@ -415,15 +416,22 @@ void app_main(void)
 
     TimerHandle_t sleep_timer = xTimerCreate("Sleep_Timer", MS_TO_TICKS(15000), pdFALSE, NULL, sleep_timer_func);
 
-    flash_init();
+    if (flash_init() < 0) {
+        ESP_LOGW(MAIN_TAG, "Failed to setup flash manager, flash chip may not be connected");
+    }
+    else if (audio_manager_init() < 0) {
+        ESP_LOGE(MAIN_TAG, "Failed to setup audio manager");
+        init_success = false;
+    }
+
     //play_sound();
 
     
     for (int i=0; i<5; i++) {
-        play_audio_asset(0);
+        play_audio_asset(0, false);
         vTaskDelay(300 / portTICK_PERIOD_MS);
     }
-    play_audio_asset(1);
+    play_audio_asset(1, false);
     
 
     time_t now;

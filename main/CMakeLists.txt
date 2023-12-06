@@ -10,6 +10,7 @@ set(srcs "Events.c"
          "drivers/MAX17048.c"
          "rgb_manager.c"
          "flash/flash_manager.c"
+         "flash/audio_manager.c"
          "daftpunk_speaker.c")
 
 

@@ -134,59 +134,6 @@ static void bt_i2s_driver_uninstall(void)
 /********************************
  * EXTERNAL FUNCTION DEFINITIONS
  *******************************/
-/*
-bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void *p_params, int param_len, bt_app_copy_cb_t p_copy_cback)
-{
-    ESP_LOGD(BT_I2S_TASK_TAG, "%s event: 0x%x, param len: %d", __func__, event, param_len);
-
-    bt_app_msg_t msg;
-    memset(&msg, 0, sizeof(bt_app_msg_t));
-
-    msg.sig = BT_APP_SIG_WORK_DISPATCH;
-    msg.event = event;
-    msg.cb = p_cback;
-
-    if (param_len == 0)
-    {
-        return bt_app_send_msg(&msg);
-    }
-    else if (p_params && param_len > 0)
-    {
-        if ((msg.param = malloc(param_len)) != NULL)
-        {
-            memcpy(msg.param, p_params, param_len);
-            // check if caller has provided a copy callback to do the deep copy 
-            if (p_copy_cback)
-            {
-                p_copy_cback(msg.param, p_params, param_len);
-            }
-            return bt_app_send_msg(&msg);
-        }
-    }
-
-    return false;
-}
-
-void bt_app_task_start_up(void)
-{
-    s_bt_app_task_queue = xQueueCreate(10, sizeof(bt_app_msg_t));
-    xTaskCreate(bt_app_task_handler, "BtAppTask", 3072, NULL, 10, &s_bt_app_task_handle);
-}
-
-void bt_app_task_shut_down(void)
-{
-    if (s_bt_app_task_handle)
-    {
-        vTaskDelete(s_bt_app_task_handle);
-        s_bt_app_task_handle = NULL;
-    }
-    if (s_bt_app_task_queue)
-    {
-        vQueueDelete(s_bt_app_task_queue);
-        s_bt_app_task_queue = NULL;
-    }
-}
-*/
 
 void bt_i2s_task_start_up(void)
 {
