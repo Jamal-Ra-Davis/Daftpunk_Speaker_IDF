@@ -175,7 +175,11 @@ static int play_audio_asset_local(uint8_t audio_id)
         bt_i2s_task_start_up();
     }
 
+#ifdef CONFIG_AUDIO_ENABLED
     uint8_t vol = bt_audio_get_volume();
+#else 
+    uint8_t vol = 15;
+#endif
     vol = 15;
     ESP_LOGI(TAG, "Vol = %d", vol);
     float vol_scale = (float)vol / 0x7f;

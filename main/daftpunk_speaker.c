@@ -94,6 +94,7 @@ void volume_increase_cb(void *ctx)
         vol = 127;
     }
     bt_audio_set_volume((uint8_t)vol);
+    play_audio_asset(0, false);
 }
 void volume_decrease_cb(void *ctx)
 {
@@ -106,6 +107,7 @@ void volume_decrease_cb(void *ctx)
         vol = 0;
     }
     bt_audio_set_volume((uint8_t)vol);
+    play_audio_asset(0, false);
 }
 static void select_action(void *ctx)
 {
