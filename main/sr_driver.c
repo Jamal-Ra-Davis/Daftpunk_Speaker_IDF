@@ -32,8 +32,10 @@ static spi_device_handle_t handle;
 
 void init_shift_registers()
 {
+  //static const uint8_t CLEAR_DATA[SR_CNT] = {
+  //    0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
   static const uint8_t CLEAR_DATA[SR_CNT] = {
-      0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+      0x00, 0x00, 0x00, 0x00, 0x00};  
   esp_err_t ret;
 
   ESP_LOGI(SR_TAG, "Initializing bus SPI%d...", SR_SPI_BUS + 1);

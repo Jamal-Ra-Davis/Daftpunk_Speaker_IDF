@@ -18,7 +18,7 @@
 #define SR_LAT_PIN 5
 
 //Hardware Config
-#define SR_CNT 6
+#define SR_CNT 5//6
 
 // Task Priorities
 #define LOGGER_TASK_PRIORITY 1

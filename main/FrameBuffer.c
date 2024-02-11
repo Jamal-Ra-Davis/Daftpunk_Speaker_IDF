@@ -17,9 +17,9 @@ void buffer_reset(display_buffer_t *buffer)
     {
         for (int j = 0; j < FRAME_BUF_COL_BYTES; j++)
         {
-            buffer->buf0.frame_buffer[i][j] = 0xFF;
-            buffer->buf1.frame_buffer[i][j] = 0xFF;
-            buffer->buf2.frame_buffer[i][j] = 0xFF;
+            buffer->buf0.frame_buffer[i][j] = 0;//~0xFF;
+            buffer->buf1.frame_buffer[i][j] = 0;//~0xFF;
+            buffer->buf2.frame_buffer[i][j] = 0;//~0xFF;
         }
     }
 }
@@ -29,7 +29,7 @@ void buffer_clear(display_buffer_t *buffer)
     {
         for (int j = 0; j < FRAME_BUF_COL_BYTES; j++)
         {
-            buffer->wbuf->frame_buffer[i][j] = 0xFF;
+            buffer->wbuf->frame_buffer[i][j] = 0;//~0xFF;
         }
     }
 }
@@ -48,9 +48,14 @@ int buffer_set_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y)
         return -1;
     }
 
-    int idx = 4 - x / 8;
+    /*
+    int idx = 3 - x / 8;
     int bit_idx = x % 8;
-    buffer->wbuf->frame_buffer[y][idx] &= ~(1 << bit_idx);
+    buffer->wbuf->frame_buffer[y][idx] |= (8 >> bit_idx);
+    */
+    int idx = x / 8;
+    int bit_idx = x % 8;
+    buffer->wbuf->frame_buffer[y][idx] |= (0x80 >> bit_idx);
     return 0;
 }
 int buffer_clear_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y)
@@ -64,9 +69,9 @@ int buffer_clear_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y)
         return -1;
     }
 
-    int idx = 4 - x / 8;
+    int idx = 3 - x / 8;
     int bit_idx = x % 8;
-    buffer->wbuf->frame_buffer[y][idx] |= (1 << bit_idx);
+    buffer->wbuf->frame_buffer[y][idx] &= ~(0x80 >> bit_idx);
     return 0;
 }
 int buffer_set_byte(display_buffer_t *buffer, uint8_t x, uint8_t y, uint8_t b)
@@ -80,7 +85,7 @@ int buffer_set_byte(display_buffer_t *buffer, uint8_t x, uint8_t y, uint8_t b)
         return -1;
     }
 
-    int idx = 4 - x / 8;
+    int idx = 3 - x / 8;
     buffer->wbuf->frame_buffer[y][idx] = b;
     return 0;
 }
@@ -95,9 +100,9 @@ bool buffer_check_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y)
         return false;
     }
 
-    int idx = 4 - x / 8;
+    int idx = 3 - x / 8;
     int bit_idx = x % 8;
-    return !(buffer->rbuf->frame_buffer[y][idx] & (1 << bit_idx));
+    return (buffer->rbuf->frame_buffer[y][idx] & (0x80 >> bit_idx));
 }
 bool buffer_compare_match(display_buffer_t *buffer)
 {

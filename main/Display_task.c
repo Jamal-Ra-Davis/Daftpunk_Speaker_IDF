@@ -99,7 +99,23 @@ static inline void update_display()
     }
     sr_buffer[0] = (1 << row_idx);
     frame_buffer_t *rbuf = buffer_get_read_buffer(&display_buffer);
-    memcpy(&sr_buffer[1], rbuf->frame_buffer[row_idx], FRAME_BUF_COL_BYTES);
+    memcpy(&sr_buffer[1], rbuf->frame_buffer[row_idx], FRAME_BUF_COL_BYTES-1);
+
+    /*
+    for (int i=0; i<FRAME_BUF_COL_BYTES-1; i++) {
+        sr_buffer[i+1] = rbuf->frame_buffer[row_idx][FRAME_BUF_COL_BYTES - 2 - i];
+        //sr_buffer[i+1] = 0x33;
+    }
+    */
+    
+    /*
+    sr_buffer[1] = 0x0F;
+    sr_buffer[2] = 0x00;
+    sr_buffer[3] = 0x00;
+    sr_buffer[4] = 0x00;
+    */
+    
+
     sr_write(sr_buffer, SR_CNT);
     row_idx = (row_idx + 1) % FRAME_BUF_ROWS;
 }
