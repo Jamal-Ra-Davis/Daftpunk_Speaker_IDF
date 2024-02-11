@@ -3,6 +3,13 @@
 #include <string.h>
 
 #define BITS_PER_BYTE 8
+#if defined(CONFIG_DEV_BOARD_DISPLAY)
+#define CLEAR_BYTE 0xFF
+#elif defined(CONFIG_FORM_FACTOR_DISPLAY)
+#define CLEAR_BYTE 0x00
+#else
+#error "Invalid display type"
+#endif
 
 display_buffer_t display_buffer;
 
@@ -17,9 +24,9 @@ void buffer_reset(display_buffer_t *buffer)
     {
         for (int j = 0; j < FRAME_BUF_COL_BYTES; j++)
         {
-            buffer->buf0.frame_buffer[i][j] = 0;//~0xFF;
-            buffer->buf1.frame_buffer[i][j] = 0;//~0xFF;
-            buffer->buf2.frame_buffer[i][j] = 0;//~0xFF;
+            buffer->buf0.frame_buffer[i][j] = CLEAR_BYTE;
+            buffer->buf1.frame_buffer[i][j] = CLEAR_BYTE;
+            buffer->buf2.frame_buffer[i][j] = CLEAR_BYTE;
         }
     }
 }
@@ -29,7 +36,7 @@ void buffer_clear(display_buffer_t *buffer)
     {
         for (int j = 0; j < FRAME_BUF_COL_BYTES; j++)
         {
-            buffer->wbuf->frame_buffer[i][j] = 0;//~0xFF;
+            buffer->wbuf->frame_buffer[i][j] = CLEAR_BYTE;
         }
     }
 }
@@ -48,14 +55,15 @@ int buffer_set_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y)
         return -1;
     }
 
-    /*
-    int idx = 3 - x / 8;
+#if defined(CONFIG_DEV_BOARD_DISPLAY)
+    int idx = 4 - x / 8;
     int bit_idx = x % 8;
-    buffer->wbuf->frame_buffer[y][idx] |= (8 >> bit_idx);
-    */
+    buffer->wbuf->frame_buffer[y][idx] &= ~(1 << bit_idx);
+#elif defined(CONFIG_FORM_FACTOR_DISPLAY)
     int idx = x / 8;
     int bit_idx = x % 8;
     buffer->wbuf->frame_buffer[y][idx] |= (0x80 >> bit_idx);
+#endif 
     return 0;
 }
 int buffer_clear_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y)
@@ -69,9 +77,15 @@ int buffer_clear_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y)
         return -1;
     }
 
-    int idx = 3 - x / 8;
+#if defined(CONFIG_DEV_BOARD_DISPLAY)
+    int idx = 4 - x / 8;
+    int bit_idx = x % 8;
+    buffer->wbuf->frame_buffer[y][idx] |= (1 << bit_idx);
+#elif defined(CONFIG_FORM_FACTOR_DISPLAY)
+    int idx = x / 8;
     int bit_idx = x % 8;
     buffer->wbuf->frame_buffer[y][idx] &= ~(0x80 >> bit_idx);
+#endif 
     return 0;
 }
 int buffer_set_byte(display_buffer_t *buffer, uint8_t x, uint8_t y, uint8_t b)
@@ -85,8 +99,14 @@ int buffer_set_byte(display_buffer_t *buffer, uint8_t x, uint8_t y, uint8_t b)
         return -1;
     }
 
-    int idx = 3 - x / 8;
+    // 1's in 'b' set pixel, 0's clear pixel
+#if defined(CONFIG_DEV_BOARD_DISPLAY)
+    int idx = 4 - x / 8;
+    buffer->wbuf->frame_buffer[y][idx] = (uint8_t)(~b);
+#elif defined(CONFIG_FORM_FACTOR_DISPLAY)
+    int idx = x / 8;
     buffer->wbuf->frame_buffer[y][idx] = b;
+#endif 
     return 0;
 }
 bool buffer_check_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y)
@@ -100,9 +120,18 @@ bool buffer_check_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y)
         return false;
     }
 
-    int idx = 3 - x / 8;
+    bool result = false;
+
+#if defined(CONFIG_DEV_BOARD_DISPLAY)
+    int idx = 4 - x / 8;
     int bit_idx = x % 8;
-    return (buffer->rbuf->frame_buffer[y][idx] & (0x80 >> bit_idx));
+    result = !(buffer->rbuf->frame_buffer[y][idx] & (1 << bit_idx));
+#elif defined(CONFIG_FORM_FACTOR_DISPLAY)
+    int idx = x / 8;
+    int bit_idx = x % 8;
+    result = (buffer->rbuf->frame_buffer[y][idx] & (0x80 >> bit_idx));
+#endif 
+    return result;
 }
 bool buffer_compare_match(display_buffer_t *buffer)
 {

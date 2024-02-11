@@ -2,9 +2,18 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "sdkconfig.h"
 
 #define FRAME_BUF_ROWS      8
+
+#if defined(CONFIG_DEV_BOARD_DISPLAY)
 #define FRAME_BUF_COL_BYTES 5
+#elif defined(CONFIG_FORM_FACTOR_DISPLAY)
+#define FRAME_BUF_COL_BYTES 4
+#else
+#error "Invalid display type"
+#endif
+
 #define FRAME_BUF_COLS (FRAME_BUF_COL_BYTES*8)
 
 typedef struct {

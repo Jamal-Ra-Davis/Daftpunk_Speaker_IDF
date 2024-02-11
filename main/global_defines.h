@@ -1,4 +1,5 @@
 #pragma once
+#include "sdkconfig.h"
 
 // Pin Defines
 #define RGB_LED_EN 17
@@ -18,7 +19,14 @@
 #define SR_LAT_PIN 5
 
 //Hardware Config
-#define SR_CNT 5//6
+#if defined(CONFIG_DEV_BOARD_DISPLAY)
+#define SR_CNT 6
+#elif defined(CONFIG_FORM_FACTOR_DISPLAY)
+#define SR_CNT 5
+#else
+#error "Invalid display type"
+#endif
+
 
 // Task Priorities
 #define LOGGER_TASK_PRIORITY 1

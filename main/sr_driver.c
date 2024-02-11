@@ -2,6 +2,7 @@
 #include "global_defines.h"
 #include "driver/spi_master.h"
 #include "esp_log.h"
+#include "sdkconfig.h"
 
 #define SR_SPI_BUS SPI3_HOST
 #define PIN_NUM_MOSI 23
@@ -29,13 +30,19 @@ static spi_device_interface_config_t dev_config = {
 };
 
 static spi_device_handle_t handle;
+#if defined(CONFIG_DEV_BOARD_DISPLAY)
+static const uint8_t CLEAR_DATA[SR_CNT] = {
+    0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+#elif defined(CONFIG_FORM_FACTOR_DISPLAY)
+static const uint8_t CLEAR_DATA[SR_CNT] = {
+    0x00, 0x00, 0x00, 0x00, 0x00};
+#else
+#error "Invalid display type"
+#endif
 
 void init_shift_registers()
 {
-  //static const uint8_t CLEAR_DATA[SR_CNT] = {
-  //    0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-  static const uint8_t CLEAR_DATA[SR_CNT] = {
-      0x00, 0x00, 0x00, 0x00, 0x00};  
+
   esp_err_t ret;
 
   ESP_LOGI(SR_TAG, "Initializing bus SPI%d...", SR_SPI_BUS + 1);
@@ -48,7 +55,7 @@ void init_shift_registers()
   ESP_ERROR_CHECK(ret);
 
   spi_transaction_t spi_transaction = {
-      .length = 6 * 8,
+      .length = sizeof(CLEAR_DATA) * 8,
       .tx_buffer = (void *)CLEAR_DATA,
   };
 

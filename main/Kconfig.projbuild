@@ -105,3 +105,21 @@ menu "MTE Config"
                 Whether WIFI is included or not
     endchoice
 endmenu
+menu "Display Type"
+    choice DISPLAY_TYPE
+        prompt "Type of display to use"
+        default DEV_BOARD_DISPLAY
+        help 
+            Select between Development board or form factor display
+
+        config DEV_BOARD_DISPLAY
+            bool "Development board display"
+            help
+                Use development board display
+
+        config FORM_FACTOR_DISPLAY
+            bool "Form-factor display"
+            help
+                Use form-factor display
+    endchoice
+endmenu

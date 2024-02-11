@@ -14,7 +14,7 @@
 #define FFT_N 2048
 #define TOTAL_TIME 0.0464399
 #define MAX_FFT_MAG 2000000.0
-#define FFT_BUCKETS 40
+#define FFT_BUCKETS FRAME_BUF_COLS
 #define PRINT_DELTA false
 #define FFT_TASK_TAG "FFT_Task"
 #define FFT_MIX_LEFT_RIGHT 0
@@ -27,8 +27,10 @@ struct fft_double_buffer
     uint32_t widx;
 };
 
+
 // File Globals
 static SemaphoreHandle_t xDataReadySem;
+#if defined(CONFIG_DEV_BOARD_DISPLAY)
 static const uint16_t ranges[FFT_BUCKETS] = {
     50, 100, 141, 185, 233, 285, 343, 406, 476, 553,
     637, 729, 829, 937, 1053, 1179, 1314, 1459,
@@ -36,6 +38,17 @@ static const uint16_t ranges[FFT_BUCKETS] = {
     3238, 3493, 3760, 4040, 4333, 4638, 4957, 5289,
     5635, 5994, 6367, 6754, 7156, 7572, // 8002,
 };
+#elif defined(CONFIG_FORM_FACTOR_DISPLAY)
+static const uint16_t ranges[FFT_BUCKETS] = {
+    73, 111, 157, 212, 276, 350, 434, 529,
+    635, 753, 884, 1027, 1185, 1356, 1542, 1744, 
+    1961, 2194, 2444, 2712, 2998, 3302, 3625, 3968, 
+    4331, 4715, 5120, 5546, 5995, 6467, 6963, 7482
+};
+#else
+#error "Invalid display type"
+#endif
+
 static const char *FFT_DISPLAY_NAMES[NUM_FFT_DISPLAYS] = {
     "FFT_LINEAR",
     "FFT_LOG",
