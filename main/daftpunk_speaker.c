@@ -354,12 +354,13 @@ void app_main(void)
     }
 
     // Display boot text
-    int test_str_len = get_str_width("DEVBOARD_V0");
+    char *test_str = "DAFT PUNK";
+    int test_str_len = get_str_width(test_str);
     buffer_enable_triple_buffering(&display_buffer, false);
     for (int i = FRAME_BUF_COLS; i >= -test_str_len; i--)
     {
         buffer_clear(&display_buffer);
-        draw_str("DEVBOARD_V0", i, 2, &display_buffer);
+        draw_str(test_str, i, 2, &display_buffer);
         buffer_update(&display_buffer);
         vTaskDelay(30 / portTICK_PERIOD_MS);
     }
@@ -369,7 +370,7 @@ void app_main(void)
     for (int i = FRAME_BUF_COLS; i >= -test_str_len; i--)
     {
         buffer_clear(&display_buffer);
-        draw_str("DEVBOARD_V0", i, 2, &display_buffer);
+        draw_str(test_str, i, 2, &display_buffer);
         buffer_update(&display_buffer);
         vTaskDelay(30 / portTICK_PERIOD_MS);
     }
@@ -425,35 +426,36 @@ void app_main(void)
         ESP_LOGE(MAIN_TAG, "Failed to setup audio manager");
         init_success = false;
     }
-
-    //play_sound();
-
-    
-    for (int i=0; i<5; i++) {
-        play_audio_asset(0, false);
-        vTaskDelay(300 / portTICK_PERIOD_MS);
+    else {
+        // Test playing sound if audio manager initialized successfully
+        for (int i=0; i<5; i++) {
+            play_audio_asset(0, false);
+            vTaskDelay(300 / portTICK_PERIOD_MS);
+        }
+        play_audio_asset(1, false);
     }
-    play_audio_asset(1, false);
-    
 
     time_t now;
     char strftime_buf[64];
     struct tm timeinfo;
 
     time(&now);
-    // Set timezone to China Standard Time
-    setenv("TZ", "CST-8", 1);
+    // Set timezone to Pacific Standard Time
+    setenv("TZ", "PST", 1);
     tzset();
 
     localtime_r(&now, &timeinfo);
     strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-    ESP_LOGI(MAIN_TAG, "The current date/time in Shanghai is: %s", strftime_buf);
+    ESP_LOGI(MAIN_TAG, "The current date/time in PST is: %s", strftime_buf);
 
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    time(&now);
-    localtime_r(&now, &timeinfo);
-    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-    ESP_LOGI(MAIN_TAG, "The current date/time in Shanghai is: %s", strftime_buf);
+    int time_str_len = get_str_width(strftime_buf);
+    for (int i = FRAME_BUF_COLS; i >= -time_str_len; i--)
+    {
+        buffer_clear(&display_buffer);
+        draw_str(strftime_buf, i, 2, &display_buffer);
+        buffer_update(&display_buffer);
+        vTaskDelay(30 / portTICK_PERIOD_MS);
+    }
 
 
     int cnt = 0;
