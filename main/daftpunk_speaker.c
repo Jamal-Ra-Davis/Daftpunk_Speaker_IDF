@@ -29,6 +29,10 @@
 #include "tcp_shell.h"
 #include "esp_sntp.h"
 
+#include "state_manager.h"
+#include "system_states.h"
+#include "pairing_state.h"
+
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
 
@@ -42,6 +46,8 @@
 
 system_state_t current_state = IDLE_STATE;
 system_state_t prev_state = BOOT_STATE;
+
+state_manager_t state_manager;
 
 void enter_sleep()
 {
@@ -457,6 +463,17 @@ void app_main(void)
         vTaskDelay(30 / portTICK_PERIOD_MS);
     }
 
+    // Test state manager
+    sm_setup_state_manager(&state_manager, NUM_SYSTEM_STATES_);
+    state_element_t pairing_state = {
+        .init = pairing_state_init,
+        .on_enter = pairing_state_on_enter,
+        .on_exit = pairing_state_on_exit,
+        .update = pairing_state_update,
+    };
+    sm_register_state(&state_manager, PAIRING_STATE_, pairing_state);
+    sm_init(&state_manager, PAIRING_STATE_, NULL);
+    sm_update(&state_manager);
 
     int cnt = 0;
     char idle_str[32] = {'\0'};

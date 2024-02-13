@@ -11,6 +11,8 @@ set(srcs "Events.c"
          "rgb_manager.c"
          "flash/flash_manager.c"
          "flash/audio_manager.c"
+         "StateManager/state_manager.c"
+         "States/pairing_state.c"
          "daftpunk_speaker.c")
 
 
@@ -40,4 +42,6 @@ idf_component_register(SRCS ${srcs}
                                  "FFT"
                                  "drivers"
                                  "TCP_Shell"
-                                 "flash")
+                                 "flash"
+                                 "StateManager"
+                                 "States")
