@@ -492,11 +492,25 @@ void app_main(void)
         .on_exit = idle_state_on_exit,
         .update = idle_state_update,
     };
+    state_element_t menu_state = {
+        .init = menu_state_init,
+        .on_enter = menu_state_on_enter,
+        .on_exit = menu_state_on_exit,
+        .update = menu_state_update,
+    };
+    state_element_t display_off_state = {
+        .init = display_off_state_init,
+        .on_enter = display_off_state_on_enter,
+        .on_exit = display_off_state_on_exit,
+        .update = display_off_state_update,
+    };
     
     sm_register_state(&state_manager, PAIRING_STATE_, pairing_state);
     sm_register_state(&state_manager, PAIR_SUCCESS_STATE_, pairing_success_state);
     sm_register_state(&state_manager, PAIR_FAIL_STATE_, pairing_fail_state);
     sm_register_state(&state_manager, IDLE_STATE_, idle_state);
+    sm_register_state(&state_manager, MENU_STATE_, menu_state);
+    sm_register_state(&state_manager, DISPLAY_OFF_STATE_, display_off_state);
     sm_init(&state_manager, PAIRING_STATE_, (void*)(&sm_ctx));
 
     while (1) {

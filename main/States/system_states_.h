@@ -7,6 +7,8 @@
 #include "PairingSuccess/pairing_success_state.h"
 #include "PairingFail/pairing_fail_state.h"
 #include "Idle/idle_state.h"
+#include "Menu/menu_state.h"
+#include "DisplayOff/display_off_state.h"
 
 typedef enum
 {
@@ -25,3 +27,5 @@ typedef enum
 typedef struct {
     QueueHandle_t event_queue;
 } state_manager_context_t;
+
+system_states_t get_system_state(state_manager_t *state_manager);
