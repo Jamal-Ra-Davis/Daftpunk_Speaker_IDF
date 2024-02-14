@@ -9,6 +9,7 @@
 #include "global_defines.h"
 
 #define MAX_EVENTS 10
+#define MAX_EXTERNAL_EVENT_QUEUES 8
 #define EVENT_MANAGER_TASK_STACK_SIZE 2304
 #define MUTEX_DELAY 100
 
@@ -21,8 +22,10 @@ struct event_callback_data
 // File Globals
 static struct event_callback_data event_callbacks[NUM_EVENTS];
 static QueueHandle_t event_queue = NULL;
+static QueueHandle_t external_event_queues[MAX_EXTERNAL_EVENT_QUEUES];
 static SemaphoreHandle_t event_mutex = NULL;
 static TaskHandle_t xevent_task = NULL;
+static int external_event_queue_cnt = 0;
 
 // Function Prototypes
 static void event_manager_task(void *pvParameters);
@@ -41,6 +44,9 @@ int init_event_manager()
     {
         ESP_LOGI(EVENTS_TAG, "Failed to create event queue");
         return -1;
+    }
+    for (int i=0; i<MAX_EXTERNAL_EVENT_QUEUES; i++) {
+        external_event_queues[i] = NULL;
     }
 
     event_mutex = xSemaphoreCreateMutex();
@@ -127,13 +133,42 @@ int push_event(system_event_t event, bool isr)
     if (isr)
     {
         ret = xQueueSendFromISR(event_queue, (void *)&event, NULL);
+        for (int i=0; i<external_event_queue_cnt; i++) {
+            xQueueSendFromISR(external_event_queues[i], (void *)&event, NULL);
+        }
     }
     else
     {
         ret = xQueueSend(event_queue, (void *)&event, (TickType_t)0);
+        for (int i=0; i<external_event_queue_cnt; i++) {
+            xQueueSend(external_event_queues[i], (void *)&event, (TickType_t)0);
+        }
     }
 
     return (ret == pdTRUE) ? 0 : -1;
+}
+QueueHandle_t get_event_queue_handle()
+{
+    if (external_event_queue_cnt >= MAX_EXTERNAL_EVENT_QUEUES) {
+        ESP_LOGI(EVENTS_TAG, "Maximum number of external event queues created");
+        return NULL;
+    }
+    // Create event queue
+    QueueHandle_t queue = xQueueCreate(MAX_EVENTS, sizeof(system_event_t));
+    if (queue == NULL) {
+        return NULL;
+    }
+
+    if (xSemaphoreTake(event_mutex, MS_TO_TICKS(MUTEX_DELAY)) != pdTRUE)
+    {
+        vQueueDelete(queue);
+        return NULL;
+    }
+
+    external_event_queues[external_event_queue_cnt] = queue;
+    external_event_queue_cnt++;
+    xSemaphoreGive(event_mutex);
+    return queue;
 }
 TaskHandle_t event_task_handle()
 {

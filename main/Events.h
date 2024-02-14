@@ -2,6 +2,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 
 #define EVENTS_TAG "EVENT_MANAGER"
 
@@ -18,6 +19,7 @@ typedef enum
     BT_AUDIO_CONNECTED,
     BT_AUDIO_DISCONNECTED,
     BT_AUDIO_CONNECTING,
+    FIRST_AUDIO_PACKET,
     NUM_EVENTS,
 } system_event_t;
 
@@ -28,4 +30,5 @@ int register_event_callback(system_event_t event, event_callback_t cb, void *ctx
 int unregister_event_callback(system_event_t event, event_callback_t cb);
 bool event_callback_registered(system_event_t event);
 int push_event(system_event_t event, bool isr);
+QueueHandle_t get_event_queue_handle();
 TaskHandle_t event_task_handle();

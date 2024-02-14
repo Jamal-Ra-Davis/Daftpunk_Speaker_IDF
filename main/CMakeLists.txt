@@ -12,7 +12,10 @@ set(srcs "Events.c"
          "flash/flash_manager.c"
          "flash/audio_manager.c"
          "StateManager/state_manager.c"
-         "States/pairing_state.c"
+         "States/Pairing/pairing_state.c"
+         "States/PairingSuccess/pairing_success_state.c"
+         "States/PairingFail/pairing_fail_state.c"
+         "States/Idle/idle_state.c"
          "daftpunk_speaker.c")
 
 

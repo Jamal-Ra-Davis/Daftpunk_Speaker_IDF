@@ -30,8 +30,7 @@
 #include "esp_sntp.h"
 
 #include "state_manager.h"
-#include "system_states.h"
-#include "pairing_state.h"
+#include "system_states_.h"
 
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
@@ -142,7 +141,7 @@ static void pair_action(void *ctx)
     // a2dp_sink.end(true);
 
     // Test sleep logic
-    enter_sleep();
+    // enter_sleep();
 }
 
 static void charge_start_action(void *ctx)
@@ -163,7 +162,7 @@ static void sleep_timer_func(TimerHandle_t xTimer)
 static void bt_connected_action(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "BT Audio Connected");
-    set_rgb_state(RGB_MANUAL);
+    //set_rgb_state(RGB_MANUAL);
     //oneshot_blink(5, 200, 100, 100, 100);
     set_rgb_led(60, 80, 60);
 }
@@ -175,8 +174,8 @@ static void bt_disconnected_action(void *ctx)
 static void bt_connecting_action(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "BT Audio connecting");
-    set_rgb_state(RGB_MANUAL);
-    set_rgb_led(0, 100, 30);
+    //set_rgb_state(RGB_MANUAL);
+    //set_rgb_led(0, 100, 30);
 }
 void soc_change_cb(void *ctx)
 {
@@ -348,7 +347,7 @@ void app_main(void)
         ESP_LOGE(MAIN_TAG, "Failed to init rgb manger");
         init_success = false;
     }
-    set_rgb_state(RGB_PAIRING);
+    // set_rgb_state(RGB_PAIRING);
 
     // Display countdown timer
     for (int i = 10; i >= 0; i--)
@@ -464,6 +463,10 @@ void app_main(void)
     }
 
     // Test state manager
+    QueueHandle_t sm_event_queue = get_event_queue_handle();
+    state_manager_context_t sm_ctx = {
+        .event_queue = sm_event_queue,
+    };
     sm_setup_state_manager(&state_manager, NUM_SYSTEM_STATES_);
     state_element_t pairing_state = {
         .init = pairing_state_init,
@@ -471,9 +474,36 @@ void app_main(void)
         .on_exit = pairing_state_on_exit,
         .update = pairing_state_update,
     };
+    state_element_t pairing_success_state = {
+        .init = pairing_success_state_init,
+        .on_enter = pairing_success_state_on_enter,
+        .on_exit = pairing_success_state_on_exit,
+        .update = pairing_success_state_update,
+    };
+    state_element_t pairing_fail_state = {
+        .init = pairing_fail_state_init,
+        .on_enter = pairing_fail_state_on_enter,
+        .on_exit = pairing_fail_state_on_exit,
+        .update = pairing_fail_state_update,
+    };
+    state_element_t idle_state = {
+        .init = idle_state_init,
+        .on_enter = idle_state_on_enter,
+        .on_exit = idle_state_on_exit,
+        .update = idle_state_update,
+    };
+    
     sm_register_state(&state_manager, PAIRING_STATE_, pairing_state);
-    sm_init(&state_manager, PAIRING_STATE_, NULL);
-    sm_update(&state_manager);
+    sm_register_state(&state_manager, PAIR_SUCCESS_STATE_, pairing_success_state);
+    sm_register_state(&state_manager, PAIR_FAIL_STATE_, pairing_fail_state);
+    sm_register_state(&state_manager, IDLE_STATE_, idle_state);
+    sm_init(&state_manager, PAIRING_STATE_, (void*)(&sm_ctx));
+
+    while (1) {
+        buffer_clear(&display_buffer);
+        sm_update(&state_manager);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 
     int cnt = 0;
     char idle_str[32] = {'\0'};
