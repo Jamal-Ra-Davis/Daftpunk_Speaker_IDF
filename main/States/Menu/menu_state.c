@@ -7,7 +7,6 @@
 
 #define TAG "MENU_STATE"
 
-static int cnt = 0;
 static int idx = 10;
 
 char buf[32];
@@ -20,7 +19,6 @@ int menu_state_init(state_manager_t *state_manager)
 int menu_state_on_enter(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "menu_state_on_enter");
-    cnt = 0;
     snprintf(buf, sizeof(buf), "IDX:%d", idx);
     return 0;
 }

@@ -1,35 +1,97 @@
 #include "idle_state.h"
+#include "freertos/timers.h"
 #include "esp_log.h"
 #include "rgb_manager.h"
 #include "Events.h"
 #include "Framebuffer.h"
 #include "Font.h"
+#include "global_defines.h"
 
 #define TAG "IDLE_STATE"
+#define IDLE_TIMEOUT_MS 45000
+#define IDLE_DELAY_MS 50
 
-static int cnt = 0;
+/*******************************
+ * Data Type Definitions
+ ******************************/
 
+/*******************************
+ * Global Data
+ ******************************/
+static TimerHandle_t xTimer;
+static bool idle_timeout = false;
+static int idx = 0;
+static const char* idle_str = "IDLE";
+static int idle_str_len;
+
+/*******************************
+ * Function Prototypes
+ ******************************/
+static void idle_timeout_func(TimerHandle_t xTimer);
+
+/*******************************
+ * Private Function Definitions
+ ******************************/
+static void idle_timeout_func(TimerHandle_t xTimer)
+{
+    idle_timeout = true;
+}
+
+/*******************************
+ * Public Function Definitions
+ ******************************/
 int idle_state_init(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "idle_state_init");
+    xTimer = xTimerCreate("Idle_Timer", MS_TO_TICKS(IDLE_TIMEOUT_MS), pdFALSE, NULL, idle_timeout_func);
+    idle_str_len = get_str_width(idle_str);
     return 0;
 }
 int idle_state_on_enter(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "idle_state_on_enter");
-    // Flash LED to indicate pairing attempt in progress
-    // Start Idle timer
+
+    idx = FRAME_BUF_COLS;
+
+    // Turn off LED
     set_rgb_state(RGB_MANUAL);
     set_rgb_led(0, 0, 0);
-    cnt = 0;
+
+    // Start timer
+    if (xTimerStart(xTimer, 0) != pdPASS) 
+    {
+        ESP_LOGE(TAG, "Failed to start timeout timer");
+    }
+    idle_timeout = false;
+
+    // Set delay for idle state
+    state_manager_context_t *ctx = (state_manager_context_t*)(state_manager->ctx);
+    if (!ctx) {
+        return 0;
+    }
+    ctx->delay_ms = IDLE_DELAY_MS;
     return 0;
 }
 int idle_state_on_exit(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "idle_state_on_exit");
-    // stop timer
+
+    // Clear buffer
     buffer_clear(&display_buffer);
     buffer_update(&display_buffer);
+
+    // Stop timer
+    if (xTimerStop(xTimer, 0) != pdPASS) 
+    {
+        ESP_LOGE(TAG, "Failed to start timeout timer");
+    }
+
+    // Revert delay back to default value
+    state_manager_context_t *ctx = (state_manager_context_t*)(state_manager->ctx);
+    if (!ctx) {
+        return 0;
+    }
+    ctx->delay_ms = DEFAULT_STATE_DELAY_MS;
     return 0;
 }
 int idle_state_update(state_manager_t *state_manager)
@@ -49,6 +111,7 @@ int idle_state_update(state_manager_t *state_manager)
     bool enter_streaming = false;
     bool enter_menu = false;
     bool bluetooth_connected = false;
+    bool button_pressed = false;
 
     system_event_t event;
     QueueHandle_t event_queue = ctx->event_queue;
@@ -56,10 +119,25 @@ int idle_state_update(state_manager_t *state_manager)
         ESP_LOGI(TAG, "Event Received: %d", (int)event);
         if (event == PAIR_LONG_PRESS) {
             enter_pairing = true;
+            button_pressed = true;
         }
         if (event == PAIR_SHORT_PRESS) {
             enter_menu = true;
+            button_pressed = true;
         }
+        if (event == VOL_M_LONG_PRESS) {
+            button_pressed = true;
+        }
+        if (event == VOL_M_SHORT_PRESS) {
+            button_pressed = true;
+        }
+        if (event == VOL_P_LONG_PRESS) {
+            button_pressed = true;
+        }
+        if (event == VOL_P_SHORT_PRESS) {
+            button_pressed = true;
+        }
+
         if (event == FIRST_AUDIO_PACKET) {
             enter_streaming = true;
         }
@@ -81,26 +159,31 @@ int idle_state_update(state_manager_t *state_manager)
         return 0;
     }
 
-
-    ESP_LOGI(TAG, "CNT: %d", cnt);
-    if (cnt >= 45) {
+    if (idle_timeout && !button_pressed) {
         if (bluetooth_connected) {
             sm_change_state(state_manager, DISPLAY_OFF_STATE_);
         }
         else {
             sm_change_state(state_manager, SLEEP_STATE_);
         }
+        return 0;
     }
-    cnt++;
 
     // State behavior
-    static const char* idle_str = "IDLE";
-    buffer_clear(&display_buffer);
-    draw_str(idle_str, 8, 2, &display_buffer);
-    buffer_update(&display_buffer);
+    if (button_pressed) {
+        ESP_LOGI(TAG, "Button pressed, resetting idle timer");
+        if (xTimerStart(xTimer, 0) != pdPASS) 
+        {
+            ESP_LOGE(TAG, "Failed to start timeout timer");
+        }
+    }
 
-    // Wait for pairing event or timeout
-    // If pairing successful, enter PAIR_SUCCESS state
-    // If pairing failed, enter PAIR_FAIL state
+    
+    buffer_clear(&display_buffer);
+    draw_str(idle_str, idx, 2, &display_buffer);
+    buffer_update(&display_buffer);
+    if (--idx <= -idle_str_len) {
+        idx = FRAME_BUF_COLS;
+    }
     return 0;
 }

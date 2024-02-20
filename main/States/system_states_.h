@@ -12,6 +12,8 @@
 #include "Streaming/streaming_state.h"
 #include "Sleep/sleep_state.h"
 
+#define DEFAULT_STATE_DELAY_MS 20
+
 typedef enum
 {
     BOOT_STATE_,
@@ -28,6 +30,9 @@ typedef enum
 
 typedef struct {
     QueueHandle_t event_queue;
+    int delay_ms;
 } state_manager_context_t;
 
 system_states_t get_system_state(state_manager_t *state_manager);
+int init_system_states(state_manager_t *state_manager);
+int get_system_state_delay(state_manager_t *state_manager);

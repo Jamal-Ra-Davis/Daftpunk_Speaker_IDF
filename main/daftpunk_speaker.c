@@ -463,74 +463,11 @@ void app_main(void)
     }
 
     // Test state manager
-    QueueHandle_t sm_event_queue = get_event_queue_handle();
-    state_manager_context_t sm_ctx = {
-        .event_queue = sm_event_queue,
-    };
-    sm_setup_state_manager(&state_manager, NUM_SYSTEM_STATES_);
-    state_element_t pairing_state = {
-        .init = pairing_state_init,
-        .on_enter = pairing_state_on_enter,
-        .on_exit = pairing_state_on_exit,
-        .update = pairing_state_update,
-    };
-    state_element_t pairing_success_state = {
-        .init = pairing_success_state_init,
-        .on_enter = pairing_success_state_on_enter,
-        .on_exit = pairing_success_state_on_exit,
-        .update = pairing_success_state_update,
-    };
-    state_element_t pairing_fail_state = {
-        .init = pairing_fail_state_init,
-        .on_enter = pairing_fail_state_on_enter,
-        .on_exit = pairing_fail_state_on_exit,
-        .update = pairing_fail_state_update,
-    };
-    state_element_t idle_state = {
-        .init = idle_state_init,
-        .on_enter = idle_state_on_enter,
-        .on_exit = idle_state_on_exit,
-        .update = idle_state_update,
-    };
-    state_element_t menu_state = {
-        .init = menu_state_init,
-        .on_enter = menu_state_on_enter,
-        .on_exit = menu_state_on_exit,
-        .update = menu_state_update,
-    };
-    state_element_t display_off_state = {
-        .init = display_off_state_init,
-        .on_enter = display_off_state_on_enter,
-        .on_exit = display_off_state_on_exit,
-        .update = display_off_state_update,
-    };
-    state_element_t streaming_state = {
-        .init = streaming_state_init,
-        .on_enter = streaming_state_on_enter,
-        .on_exit = streaming_state_on_exit,
-        .update = streaming_state_update,
-    };
-    state_element_t sleep_state = {
-        .init = sleep_state_init,
-        .on_enter = sleep_state_on_enter,
-        .on_exit = sleep_state_on_exit,
-        .update = sleep_state_update,
-    };
-    
-    sm_register_state(&state_manager, PAIRING_STATE_, pairing_state);
-    sm_register_state(&state_manager, PAIR_SUCCESS_STATE_, pairing_success_state);
-    sm_register_state(&state_manager, PAIR_FAIL_STATE_, pairing_fail_state);
-    sm_register_state(&state_manager, IDLE_STATE_, idle_state);
-    sm_register_state(&state_manager, MENU_STATE_, menu_state);
-    sm_register_state(&state_manager, DISPLAY_OFF_STATE_, display_off_state);
-    sm_register_state(&state_manager, STREAMING_STATE_, streaming_state);
-    sm_register_state(&state_manager, SLEEP_STATE_, sleep_state);
-    sm_init(&state_manager, PAIRING_STATE_, (void*)(&sm_ctx));
-
+    init_system_states(&state_manager);
     while (1) {
         buffer_clear(&display_buffer);
         sm_update(&state_manager);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(get_system_state_delay(&state_manager) / portTICK_PERIOD_MS);
     }
 
     int cnt = 0;
