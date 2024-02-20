@@ -164,12 +164,14 @@ static void bt_connected_action(void *ctx)
     ESP_LOGI(MAIN_TAG, "BT Audio Connected");
     //set_rgb_state(RGB_MANUAL);
     //oneshot_blink(5, 200, 100, 100, 100);
-    set_rgb_led(60, 80, 60);
+    //set_rgb_led(60, 80, 60);
 }
 static void bt_disconnected_action(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "BT Audio Disconnected");
-    set_rgb_state(RGB_PAIRING);
+    if (bt_audio_enabled()) {
+        set_rgb_state(RGB_PAIRING);
+    }
 }
 static void bt_connecting_action(void *ctx)
 {
@@ -463,10 +465,16 @@ void app_main(void)
     }
 
     // Test state manager
+    int info_idx = 0;
     init_system_states(&state_manager);
     while (1) {
         buffer_clear(&display_buffer);
         sm_update(&state_manager);
+        if (info_idx % 20 == 0) {
+            ESP_LOGI(MAIN_TAG, "Bluetooth audio enabled: %d", (int)bt_audio_enabled());
+            ESP_LOGI(MAIN_TAG, "Bluetooth audio connected: %d", (int)bt_audio_connected());
+        }
+        info_idx++;
         vTaskDelay(get_system_state_delay(&state_manager) / portTICK_PERIOD_MS);
     }
 

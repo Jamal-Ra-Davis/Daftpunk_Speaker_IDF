@@ -4,6 +4,7 @@
 #include "rgb_manager.h"
 #include "Events.h"
 #include "global_defines.h"
+#include "bt_audio.h"
 
 #define TAG "PAIRING_FAIL_STATE"
 #define PAIRING_FAIL_TIMEOUT_MS 5000
@@ -45,6 +46,9 @@ int pairing_fail_state_on_enter(state_manager_t *state_manager)
     ESP_LOGI(TAG, "pairing_fail_state_on_enter");
 
     // Disable bluetooth
+    if (bt_audio_enabled()) {
+        bt_audio_deinit();
+    }
 
     // Show error LED
     set_rgb_state(RGB_MANUAL);

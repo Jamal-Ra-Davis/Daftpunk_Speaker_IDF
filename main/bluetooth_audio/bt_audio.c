@@ -7,6 +7,7 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_system.h"
@@ -33,6 +34,10 @@ enum
     BT_APP_EVT_STACK_UP = 0,
     BT_APP_EVT_STACK_DOWN,
 };
+
+static bool audio_enabled = false;
+static SemaphoreHandle_t xWorkSem;
+bool active_connection = false;
 
 /********************************
  * STATIC FUNCTION DECLARATIONS
@@ -146,6 +151,7 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
     }
     case BT_APP_EVT_STACK_DOWN:
     {
+        ESP_LOGE(BT_AV_TAG, "%s - BT_APP_EVT_STACK_DOWN called\n", __func__);
         /* set not discoverable and not connectable mode */
         esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
 
@@ -166,6 +172,12 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
 
         // esp_bt_dev_set_device_name(LOCAL_DEVICE_NAME);
         // esp_bt_gap_register_callback(bt_app_gap_cb);
+
+        if (xSemaphoreGive(xWorkSem) != pdTRUE)
+        {
+            // Failed to give semaphore
+            ESP_LOGE(BT_AV_TAG, "Failed to give semaphore");
+        }
         break;
     }
     /* others */
@@ -195,6 +207,13 @@ void bt_audio_init()
     {
         first = false;
         ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
+
+        xWorkSem = xSemaphoreCreateBinary();
+        if (xWorkSem == NULL)
+        {
+            ESP_LOGE(BT_AV_TAG, "Could not allocate work semaphore");
+            assert(false);
+        }
     }
 
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
@@ -248,6 +267,8 @@ void bt_audio_init()
     /* bluetooth device name, connection mode and profile set up */
     ESP_LOGI(BT_AV_TAG, "%s Dispatching bt_av_hdl_stack_evt: BT_APP_EVT_STACK_UP\n", __func__);
     bt_app_work_dispatch(bt_av_hdl_stack_evt, BT_APP_EVT_STACK_UP, NULL, 0, NULL);
+
+    audio_enabled = true;
 }
 
 void bt_audio_deinit()
@@ -256,6 +277,12 @@ void bt_audio_deinit()
 
     ESP_LOGI(BT_AV_TAG, "%s Dispatching bt_av_hdl_stack_evt: BT_APP_EVT_STACK_DOWN\n", __func__);
     bt_app_work_dispatch(bt_av_hdl_stack_evt, BT_APP_EVT_STACK_DOWN, NULL, 0, NULL);
+
+    // Wait for dispatched work to complete
+    if (xSemaphoreTake(xWorkSem, portMAX_DELAY) == pdFALSE)
+    {
+        ESP_LOGE(BT_AV_TAG, "Failed to take semaphore");
+    }
 
     ESP_LOGI(BT_AV_TAG, "%s Shutting down bluetooth app task\n", __func__);
     bt_app_task_shut_down();
@@ -290,4 +317,17 @@ void bt_audio_deinit()
         ESP_LOGE(BT_AV_TAG, "%s deinitialize controller failed: %s\n", __func__, esp_err_to_name(err));
         return;
     }
+
+    active_connection = false;
+    audio_enabled = false;
+}
+
+bool bt_audio_enabled()
+{
+    return audio_enabled;
+}
+
+bool bt_audio_connected()
+{
+    return active_connection;
 }

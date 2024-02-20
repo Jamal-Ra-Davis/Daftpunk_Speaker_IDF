@@ -6,6 +6,7 @@
 #include "Framebuffer.h"
 #include "Font.h"
 #include "global_defines.h"
+#include "bt_audio.h"
 
 #define TAG "IDLE_STATE"
 #define IDLE_TIMEOUT_MS 45000
@@ -110,7 +111,7 @@ int idle_state_update(state_manager_t *state_manager)
     bool enter_pairing = false;
     bool enter_streaming = false;
     bool enter_menu = false;
-    bool bluetooth_connected = false;
+    bool bluetooth_connected = bt_audio_connected();
     bool button_pressed = false;
 
     system_event_t event;
@@ -178,6 +179,11 @@ int idle_state_update(state_manager_t *state_manager)
         }
     }
 
+    /*
+    if (bt_audio_enabled() && !bt_audio_connected()) {
+        set_rgb_state(RGB_PAIRING);
+    }
+    */
     
     buffer_clear(&display_buffer);
     draw_str(idle_str, idx, 2, &display_buffer);

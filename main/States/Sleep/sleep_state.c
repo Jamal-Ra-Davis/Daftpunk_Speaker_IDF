@@ -4,6 +4,7 @@
 #include "Events.h"
 #include "Framebuffer.h"
 #include "Font.h"
+#include "bt_audio.h"
 
 #define TAG "DISPLAY_OFF_STATE"
 
@@ -18,6 +19,10 @@ int sleep_state_on_enter(state_manager_t *state_manager)
     ESP_LOGI(TAG, "sleep_state_on_enter");
     buffer_clear(&display_buffer);
     buffer_update(&display_buffer);
+
+    if (bt_audio_enabled()) {
+        bt_audio_deinit();
+    }
     return 0;
 }
 int sleep_state_on_exit(state_manager_t *state_manager)
