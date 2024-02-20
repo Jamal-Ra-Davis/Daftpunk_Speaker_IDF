@@ -48,7 +48,7 @@ int idle_state_update(state_manager_t *state_manager)
     bool enter_pairing = false;
     bool enter_streaming = false;
     bool enter_menu = false;
-    bool bluetooth_connected = true;
+    bool bluetooth_connected = false;
 
     system_event_t event;
     QueueHandle_t event_queue = ctx->event_queue;

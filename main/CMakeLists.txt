@@ -19,6 +19,8 @@ set(srcs "Events.c"
          "States/Idle/idle_state.c"
          "States/Menu/menu_state.c"
          "States/DisplayOff/display_off_state.c"
+         "States/Streaming/streaming_state.c"
+         "States/Sleep/sleep_state.c"
          "daftpunk_speaker.c")
 
 

@@ -504,6 +504,18 @@ void app_main(void)
         .on_exit = display_off_state_on_exit,
         .update = display_off_state_update,
     };
+    state_element_t streaming_state = {
+        .init = streaming_state_init,
+        .on_enter = streaming_state_on_enter,
+        .on_exit = streaming_state_on_exit,
+        .update = streaming_state_update,
+    };
+    state_element_t sleep_state = {
+        .init = sleep_state_init,
+        .on_enter = sleep_state_on_enter,
+        .on_exit = sleep_state_on_exit,
+        .update = sleep_state_update,
+    };
     
     sm_register_state(&state_manager, PAIRING_STATE_, pairing_state);
     sm_register_state(&state_manager, PAIR_SUCCESS_STATE_, pairing_success_state);
@@ -511,6 +523,8 @@ void app_main(void)
     sm_register_state(&state_manager, IDLE_STATE_, idle_state);
     sm_register_state(&state_manager, MENU_STATE_, menu_state);
     sm_register_state(&state_manager, DISPLAY_OFF_STATE_, display_off_state);
+    sm_register_state(&state_manager, STREAMING_STATE_, streaming_state);
+    sm_register_state(&state_manager, SLEEP_STATE_, sleep_state);
     sm_init(&state_manager, PAIRING_STATE_, (void*)(&sm_ctx));
 
     while (1) {

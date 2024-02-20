@@ -20,6 +20,7 @@ typedef enum
     BT_AUDIO_DISCONNECTED,
     BT_AUDIO_CONNECTING,
     FIRST_AUDIO_PACKET,
+    STREAMING_TIMEOUT,
     NUM_EVENTS,
 } system_event_t;
 

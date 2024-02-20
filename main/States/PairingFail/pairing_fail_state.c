@@ -21,6 +21,9 @@ int pairing_fail_state_on_enter(state_manager_t *state_manager)
     set_rgb_state(RGB_MANUAL);
     set_rgb_led(100, 0, 0);
     cnt = 0;
+
+    // Disable bluetooth stack
+    // Show error LED
     return 0;
 }
 int pairing_fail_state_on_exit(state_manager_t *state_manager)

@@ -6,6 +6,8 @@
 #include "FrameBuffer.h"
 #include "esp_log.h"
 #include "system_states.h"
+#include "system_states_.h"
+#include "Events.h"
 
 #include <math.h>
 #include <string.h>
@@ -64,6 +66,8 @@ extern system_state_t current_state;
 TimerHandle_t idle_timer;
 static fft_display_type_t fft_display = FFT_LOG;
 static uint32_t log_base_value = 20000;
+
+extern state_manager_t state_manager;
 
 // Function Prototypes
 static void fft_task(void *pvParameters);
@@ -276,20 +280,22 @@ void process_fft()
 
     // End of FFT Calculations
     fft_end_time = esp_log_timestamp();
-    if (current_state != STREAMING_STATE)
-    {
-        current_state = STREAMING_STATE;
+    system_states_t state = get_system_state(&state_manager);
+    if (state != STREAMING_STATE_) {
+        push_event(FIRST_AUDIO_PACKET, false);
     }
-    switch (fft_display)
-    {
-    case FFT_LINEAR:
-        draw_fft_linear(bucket_mags);
-        break;
-    case FFT_LOG:
-        draw_fft_logarithmic(bucket_mags);
-        break;
-    default:
-        break;
+    else {
+        switch (fft_display)
+        {
+        case FFT_LINEAR:
+            draw_fft_linear(bucket_mags);
+            break;
+        case FFT_LOG:
+            draw_fft_logarithmic(bucket_mags);
+            break;
+        default:
+            break;
+        }
     }
 
     if (xTimerStart(idle_timer, 0) != pdPASS)
@@ -307,8 +313,8 @@ void process_fft()
 
 static void idle_timer_func(TimerHandle_t xTimer)
 {
-    if (current_state == STREAMING_STATE)
-    {
-        current_state = IDLE_STATE;
+    system_states_t state = get_system_state(&state_manager);
+    if (state == STREAMING_STATE_) {
+        push_event(STREAMING_TIMEOUT, true);
     }
 }

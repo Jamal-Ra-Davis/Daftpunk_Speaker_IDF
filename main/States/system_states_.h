@@ -9,6 +9,8 @@
 #include "Idle/idle_state.h"
 #include "Menu/menu_state.h"
 #include "DisplayOff/display_off_state.h"
+#include "Streaming/streaming_state.h"
+#include "Sleep/sleep_state.h"
 
 typedef enum
 {
