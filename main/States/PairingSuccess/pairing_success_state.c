@@ -1,33 +1,70 @@
 #include "pairing_success_state.h"
+#include "freertos/timers.h"
 #include "esp_log.h"
 #include "rgb_manager.h"
 #include "Events.h"
+#include "global_defines.h"
 
 #define TAG "PAIRING_SUCCESS_STATE"
+#define PAIRING_SUCCESS_TIMEOUT_MS 5000
 
-static int cnt = 0;
+/*******************************
+ * Data Type Definitions
+ ******************************/
 
+/*******************************
+ * Global Data
+ ******************************/
+static TimerHandle_t xTimer;
+static bool pairing_success_timeout = false;
+
+/*******************************
+ * Function Prototypes
+ ******************************/
+static void pairing_success_timeout_func(TimerHandle_t xTimer);
+
+/*******************************
+ * Private Function Definitions
+ ******************************/
+static void pairing_success_timeout_func(TimerHandle_t xTimer)
+{
+    pairing_success_timeout = true;
+}
+
+/*******************************
+ * Public Function Definitions
+ ******************************/
 int pairing_success_state_init(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "pairing_success_state_init");
+    xTimer = xTimerCreate("Pair_Fail_Timer", MS_TO_TICKS(PAIRING_SUCCESS_TIMEOUT_MS), pdFALSE, NULL, pairing_success_timeout_func);
     return 0;
 }
 int pairing_success_state_on_enter(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "pairing_success_state_on_enter");
-    // Flash LED to indicate pairing attempt in progress
-    // Start timer
-    //set_rgb_state(RGB_PAIRING);
+
+    // Show success LED
     set_rgb_state(RGB_MANUAL);
     set_rgb_led(0, 100, 0);
-    cnt = 0;
+
+    // Start timer
+    if (xTimerStart(xTimer, 0) != pdPASS) 
+    {
+        ESP_LOGE(TAG, "Failed to start timeout timer");
+    }
+    pairing_success_timeout = false;
     return 0;
 }
 int pairing_success_state_on_exit(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "pairing_success_state_on_exit");
-    set_rgb_state(RGB_MANUAL);
-    set_rgb_led(0, 0, 0);
+
+    // Stop timer
+    if (xTimerStop(xTimer, 0) != pdPASS) 
+    {
+        ESP_LOGE(TAG, "Failed to start timeout timer");
+    }
     return 0;
 }
 int pairing_success_state_update(state_manager_t *state_manager)
@@ -49,14 +86,9 @@ int pairing_success_state_update(state_manager_t *state_manager)
         ESP_LOGI(TAG, "Event Received: %d", (int)event);
     }
 
-    ESP_LOGI(TAG, "CNT: %d", cnt);
-    if (cnt >= 10) {
+    if (pairing_success_timeout) {
         sm_change_state(state_manager, IDLE_STATE_);
+        return 0;
     }
-    cnt++;
-    
-    // Wait for pairing event or timeout
-    // If pairing successful, enter PAIR_SUCCESS state
-    // If pairing failed, enter PAIR_FAIL state
     return 0;
 }

@@ -1,31 +1,70 @@
 #include "pairing_state.h"
+#include "freertos/timers.h"
 #include "esp_log.h"
 #include "rgb_manager.h"
 #include "Events.h"
+#include "global_defines.h"
 
 #define TAG "PAIRING_STATE"
+#define PAIRING_TIMEOUT_MS 30000
 
-static int cnt = 0;
+/*******************************
+ * Data Type Definitions
+ ******************************/
 
+/*******************************
+ * Global Data
+ ******************************/
+static TimerHandle_t xTimer;
+static bool pairing_timeout = false;
+
+/*******************************
+ * Function Prototypes
+ ******************************/
+static void pairing_timeout_func(TimerHandle_t xTimer);
+
+/*******************************
+ * Private Function Definitions
+ ******************************/
+static void pairing_timeout_func(TimerHandle_t xTimer)
+{
+    pairing_timeout = true;
+}
+
+/*******************************
+ * Public Function Definitions
+ ******************************/
 int pairing_state_init(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "pairing_state_init");
+    xTimer = xTimerCreate("Pair_Timer", MS_TO_TICKS(PAIRING_TIMEOUT_MS), pdFALSE, NULL, pairing_timeout_func);
     return 0;
 }
 int pairing_state_on_enter(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "pairing_state_on_enter");
-    // Flash LED to indicate pairing attempt in progress
-    // Start timer
+
+    // Check if bluetooth is enabled, and enable if not
+
+    // Flash LED to indicate pairing attempt in progress    
     set_rgb_state(RGB_PAIRING);
-    //set_rgb_state(RGB_1HZ_CYCLE);
-    cnt = 0;
+
+    // Start timer
+    if (xTimerStart(xTimer, 0) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to start timeout timer");
+    }
+    pairing_timeout = false;
     return 0;
 }
 int pairing_state_on_exit(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "pairing_state_on_exit");
-    set_rgb_state(RGB_LOW_BATTERY);
+
+    // Stop timer
+    if (xTimerStop(xTimer, 0) != pdPASS) 
+    {
+        ESP_LOGE(TAG, "Failed to start timeout timer");
+    }
     return 0;
 }
 int pairing_state_update(state_manager_t *state_manager)
@@ -43,6 +82,7 @@ int pairing_state_update(state_manager_t *state_manager)
 
     bool pair_connected = false;
     bool pair_connecting = false;
+    bool pair_exit = false;
     system_event_t event;
     QueueHandle_t event_queue = ctx->event_queue;
     while (xQueueReceive(event_queue, &event, 0) == pdTRUE) {
@@ -53,26 +93,28 @@ int pairing_state_update(state_manager_t *state_manager)
         if (event == BT_AUDIO_CONNECTED) {
             pair_connected = true;
         }
+        if (event == PAIR_LONG_PRESS) {
+            pair_exit = true;
+        }
     }
 
+    // State changes:
+        // - On successful pair, enter PAIR_SUCCESS state
+        // - On timeout, enter PAIR_FAIL state
+        // - On manaul exit, enter PAIR_FAIL state
     if (pair_connected) {
         sm_change_state(state_manager, PAIR_SUCCESS_STATE_);
+        return 0;
     }
-    else if (pair_connecting) {
-        set_rgb_state(RGB_MANUAL);
-        set_rgb_led(50, 100, 0);
-    }
-    else {
-        ESP_LOGI(TAG, "CNT: %d", cnt);
-        if (cnt >= 30) {
-            sm_change_state(state_manager, PAIR_FAIL_STATE_);
-        }
-        cnt++;
+    if (pairing_timeout || pair_exit) {
+        sm_change_state(state_manager, PAIR_FAIL_STATE_);
+        return 0;
     }
 
-    
-    // Wait for pairing event or timeout
-    // If pairing successful, enter PAIR_SUCCESS state
-    // If pairing failed, enter PAIR_FAIL state
+    // State action
+    if (pair_connecting) {
+        set_rgb_state(RGB_MANUAL);
+        set_rgb_led(50, 100, 0);
+    }    
     return 0;
 }
