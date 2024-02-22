@@ -13,7 +13,7 @@ class TCPShell(cmd.Cmd):
 
     # ----- basic commands -----
     def do_echo(self, arg):
-        'Send string to device and echo the response'
+        'Send string to device and echo the response: echo <echo_string>'
         print(arg)
         payload = bytes(arg, "utf-8")
         resp = socket_test.send_message(self.tcp_socket, socket_test.MessageID.ECHO, payload, True)
@@ -21,7 +21,7 @@ class TCPShell(cmd.Cmd):
             print(resp)
 
     def do_crc(self, arg):
-        'Calculate CRC for given input'
+        'Calculate CRC for given input: crc <input>'
         data = bytes(arg, 'utf-8')
         res = socket_test.simple_crc16(0, data)
         print(hex(res))
@@ -36,7 +36,7 @@ class TCPShell(cmd.Cmd):
         socket_test.send_nvm_data(self.tcp_socket, file_name, file_bytes)
 
     def do_write_audio_asset(self, arg):
-        'Writes specificed audio file to NVM on device: write_audio_asset <Audio ID (0 - 7)> <file_path> <filename_dev>'
+        'Writes specified audio file to NVM on device: write_audio_asset <Audio ID (0 - 7)> <file_path> <filename_dev>'
         audio_id = int(arg.split()[0])
         file_name = arg.split()[1]
         file_name_dev = arg.split()[2]
@@ -58,7 +58,7 @@ class TCPShell(cmd.Cmd):
             print(f"Error: {e} - ({type(e).__name__})")
             
     def do_play_audio_asset(self, arg):
-        'Writes specificed audio file to NVM on device: plays_audio_asset <Audio ID (0 - 7)>'
+        'Plays specificed audio file based on Audio ID: play_audio_asset <Audio ID (0 - 7)>'
         audio_id = int(arg.split()[0])
         print(f"Audio ID: {audio_id}")
         try:
@@ -67,7 +67,7 @@ class TCPShell(cmd.Cmd):
             print(f"Error: {e} - ({type(e).__name__})")
 
     def do_nvm_erase_chip(self, arg):
-        'Fomat flash storage'
+        'Fomat flash storage: nvm_erase_chip'
         print("About to format NVM, this will take a while...")
         print("NOTE: Device will need to be reset after formatting for filesystem to be created")
         socket_test.send_message(self.tcp_socket, socket_test.MessageID.NVM_ERASE_CHIP, None, False)
