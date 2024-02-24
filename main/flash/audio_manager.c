@@ -330,6 +330,15 @@ int audio_manager_init()
         audio_sfx_map[i] = -1;
     }
 
+    // Default Audio Mapping
+    map_audio_sfx(AUDIO_SFX_POWERON, 0);
+    map_audio_sfx(AUDIO_SFX_SLEEP, 1);
+    map_audio_sfx(AUDIO_SFX_WAKE, 2);
+    map_audio_sfx(AUDIO_SFX_CONNECT, 3);
+    map_audio_sfx(AUDIO_SFX_DISCONNECT, 4);
+    map_audio_sfx(AUDIO_SFX_VOLUME_UP, 5);
+    map_audio_sfx(AUDIO_SFX_VOLUME_DOWN, 5);
+
     // Create message queue for audio data
     audio_queue = xQueueCreate(AUDIO_QUEUE_LENGTH, sizeof(audio_request_t));
     if (audio_queue == NULL)

@@ -396,16 +396,7 @@ void app_main(void)
         init_success = false;
     }
     else {
-        map_audio_sfx(AUDIO_SFX_POWERON, 1);
-        map_audio_sfx(AUDIO_SFX_CONNECT, 2);
-        map_audio_sfx(AUDIO_SFX_DISCONNECT, 5);
-        map_audio_sfx(AUDIO_SFX_VOLUME_UP, 0);
-        map_audio_sfx(AUDIO_SFX_VOLUME_DOWN, 0);
         // Test playing sound if audio manager initialized successfully
-        for (int i=0; i<5; i++) {
-            play_audio_sfx(AUDIO_SFX_VOLUME_UP, false);
-            vTaskDelay(300 / portTICK_PERIOD_MS);
-        }
         play_audio_sfx(AUDIO_SFX_POWERON, false);
     }
 
