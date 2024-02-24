@@ -1,6 +1,8 @@
 # Daftpunk_Speaker_IDF
 Ported Daftpunk speaker project to use ESP-IDF
 
+
+-----------------------------------
 # Licenses
 ## Kenny - Audio UX Sound Effects
 Interface Sounds (1.0)
