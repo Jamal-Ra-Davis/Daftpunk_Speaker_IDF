@@ -1,5 +1,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 
 #include <string.h>
 #include "esp_flash.h"
@@ -42,6 +43,11 @@ typedef struct {
     uint32_t payload_size;
     uint32_t bytes_remaining;
 } nvm_command_data_t;
+
+typedef struct __attribute__((packed)) {
+    uint8_t audio_id;
+    SemaphoreHandle_t blocking_sem;
+} audio_request_t;
 
 /*******************************
  * Global Data
@@ -217,6 +223,7 @@ static int play_audio_asset_local(uint8_t audio_id)
     }
 
     fclose(fp);
+    flush_ringbuf();
     ESP_LOGI(TAG, "Finshed loading audio from flash");
     return 0;
 }
@@ -229,11 +236,18 @@ static void audio_manager_task(void *pvParameters)
         vTaskDelete(NULL);
     }
 
-    uint8_t audio_id;
+    audio_request_t req;
     while (1)
     {
-        xQueueReceive(audio_queue, &audio_id, portMAX_DELAY);
-        play_audio_asset_local(audio_id);
+        xQueueReceive(audio_queue, &req, portMAX_DELAY);
+        play_audio_asset_local(req.audio_id);
+        if (req.blocking_sem == NULL) {
+            continue;
+        }
+        if (xSemaphoreGive(req.blocking_sem) != pdTRUE) {
+            // Failed to give semaphore
+            ESP_LOGE(TAG, "Failed to give semaphore");
+        }
     }
 }
 
@@ -249,7 +263,57 @@ static void reset_nvm_data()
     audio_data_cache.active = false;
 }
 
+static int play_audio_asset_general(uint8_t audio_id, bool isr, bool blocking, TickType_t xTicksToWait)
+{
+    if (audio_id >= AUDIO_NUM_SLOTS) {
+        ESP_LOGE(TAG, "Invalid audio ID (%u), must be between 0 and %u", audio_id, AUDIO_NUM_SLOTS);
+        return -1;
+    }
+    if (!audio_meta_data[audio_id].active) {
+        ESP_LOGE(TAG, "No asset present at audio ID (%u)", audio_id);
+        return -1;
+    }
+    if (audio_queue == NULL)
+    {
+        ESP_LOGE(TAG, "Audio queue uninitialized");
+        return -1;
+    }
 
+    BaseType_t ret;
+    audio_request_t req = {
+        .audio_id = audio_id,
+        .blocking_sem = NULL,
+    };
+    if (isr)
+    {
+        // In ISR context (cannot block while in ISR)
+        ret = xQueueSendFromISR(audio_queue, (void *)&req, NULL);
+    }
+    else if (!blocking)
+    {
+        // Not blocking
+        ret = xQueueSend(audio_queue, (void *)&req, (TickType_t)0);
+    }
+    else {
+        // Blockng
+        req.blocking_sem = xSemaphoreCreateBinary();
+        if (req.blocking_sem == NULL)
+        {
+            ESP_LOGE(TAG, "Could not allocate blocking semaphore");
+            return -1;
+        }
+
+        ret = xQueueSend(audio_queue, (void *)&req, (TickType_t)0);
+
+        if (xSemaphoreTake(req.blocking_sem, xTicksToWait) == pdFALSE)
+        {
+            ESP_LOGE(TAG, "Failed to take semaphore");
+            return -1;
+        }
+    }
+
+    return (ret == pdTRUE) ? 0 : -1;
+}
 
 /*******************************
  * Public Function Definitions
@@ -267,7 +331,7 @@ int audio_manager_init()
     }
 
     // Create message queue for audio data
-    audio_queue = xQueueCreate(AUDIO_QUEUE_LENGTH, sizeof(uint8_t));
+    audio_queue = xQueueCreate(AUDIO_QUEUE_LENGTH, sizeof(audio_request_t));
     if (audio_queue == NULL)
     {
         ESP_LOGI(TAG, "Failed to create audio queue");
@@ -320,31 +384,7 @@ int audio_manager_init()
 
 int play_audio_asset(uint8_t audio_id, bool isr)
 {
-    if (audio_id >= AUDIO_NUM_SLOTS) {
-        ESP_LOGE(TAG, "Invalid audio ID (%u), must be between 0 and %u", audio_id, AUDIO_NUM_SLOTS);
-        return -1;
-    }
-    if (!audio_meta_data[audio_id].active) {
-        ESP_LOGE(TAG, "No asset present at audio ID (%u)", audio_id);
-        return -1;
-    }
-    if (audio_queue == NULL)
-    {
-        ESP_LOGE(TAG, "Audio queue uninitialized");
-        return -1;
-    }
-
-    BaseType_t ret;
-    if (isr)
-    {
-        ret = xQueueSendFromISR(audio_queue, (void *)&audio_id, NULL);
-    }
-    else
-    {
-        ret = xQueueSend(audio_queue, (void *)&audio_id, (TickType_t)0);
-    }
-
-    return (ret == pdTRUE) ? 0 : -1;
+   return play_audio_asset_general(audio_id, isr, false, (TickType_t)0);
 }
 
 int play_audio_sfx(audio_sfx_t sfx, bool isr)
@@ -358,6 +398,24 @@ int play_audio_sfx(audio_sfx_t sfx, bool isr)
         return -1;
     }
     return play_audio_asset((uint8_t)audio_id, isr);
+}
+
+int play_audio_asset_blocking(uint8_t audio_id, TickType_t xTicksToWait)
+{
+    return play_audio_asset_general(audio_id, false, true, xTicksToWait);
+}
+
+int play_audio_sfx_blocking(audio_sfx_t sfx, TickType_t xTicksToWait)
+{
+    if (sfx >= NUM_AUDIO_SFX) {
+        ESP_LOGE(TAG, "Invalid audio sfx ID (%u), must be between 0 and %u", (unsigned)sfx, NUM_AUDIO_SFX);
+        return -1;
+    }
+    int8_t audio_id = audio_sfx_map[sfx];
+    if (audio_id < 0) {
+        return -1;
+    }
+    return play_audio_asset_blocking((uint8_t)audio_id, xTicksToWait);
 }
 
 int map_audio_sfx(audio_sfx_t sfx, uint8_t audio_id)
