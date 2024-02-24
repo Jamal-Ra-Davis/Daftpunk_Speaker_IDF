@@ -20,3 +20,8 @@ void bt_i2s_task_shut_down(void);
  * @return size if writteen ringbuffer successfully, 0 others
  */
 size_t write_ringbuf(const uint8_t *data, size_t size);
+
+/**
+ * @brief  Flush ringbuf to immediataly play buffered audio data
+ */
+void flush_ringbuf();

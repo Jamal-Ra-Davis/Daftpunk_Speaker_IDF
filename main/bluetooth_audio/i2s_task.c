@@ -224,3 +224,12 @@ size_t write_ringbuf(const uint8_t *data, size_t size)
 
     return done ? size : 0;
 }
+
+void flush_ringbuf()
+{
+    ringbuffer_mode = RINGBUFFER_MODE_PROCESSING;
+    if (pdFALSE == xSemaphoreGive(s_i2s_write_semaphore))
+    {
+        ESP_LOGE(BT_I2S_TASK_TAG, "semphore give failed");
+    }
+}
