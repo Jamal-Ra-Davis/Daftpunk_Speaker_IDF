@@ -295,6 +295,9 @@ static void tcp_server_task(void *pvParameters)
         }
 #endif
         ESP_LOGI(TCP_SHELL_TASK_TAG, "Socket accepted ip address: %s", addr_str);
+        // TODO: Replace with pushing event whose callback plays the sound.
+        // Need to change system_events_t enum name as ESP code already uses that
+        play_audio_sfx(AUDIO_SFX_CONNECT, false);
 
         sock_handle = sock;
         do_retransmit(sock);
@@ -302,6 +305,7 @@ static void tcp_server_task(void *pvParameters)
 
         shutdown(sock, 0);
         close(sock);
+        play_audio_sfx(AUDIO_SFX_DISCONNECT, false);
     }
 
 CLEAN_UP:
