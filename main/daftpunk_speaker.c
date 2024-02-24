@@ -22,6 +22,7 @@
 #include "Font.h"
 #include "system_states.h"
 #include "bt_audio.h"
+#include "i2s_task.h"
 #include "MAX17048.h"
 #include "rgb_manager.h"
 #include "flash_manager.h"
@@ -99,7 +100,7 @@ void volume_increase_cb(void *ctx)
         vol = 127;
     }
     bt_audio_set_volume((uint8_t)vol);
-    play_audio_asset(0, false);
+    play_audio_sfx(AUDIO_SFX_VOLUME_UP, false);
 }
 void volume_decrease_cb(void *ctx)
 {
@@ -112,7 +113,7 @@ void volume_decrease_cb(void *ctx)
         vol = 0;
     }
     bt_audio_set_volume((uint8_t)vol);
-    play_audio_asset(0, false);
+    play_audio_sfx(AUDIO_SFX_VOLUME_DOWN, false);
 }
 static void select_action(void *ctx)
 {
@@ -165,6 +166,7 @@ static void bt_connected_action(void *ctx)
     //set_rgb_state(RGB_MANUAL);
     //oneshot_blink(5, 200, 100, 100, 100);
     //set_rgb_led(60, 80, 60);
+    play_audio_sfx(AUDIO_SFX_CONNECT, false);
 }
 static void bt_disconnected_action(void *ctx)
 {
@@ -172,6 +174,7 @@ static void bt_disconnected_action(void *ctx)
     if (bt_audio_enabled()) {
         set_rgb_state(RGB_PAIRING);
     }
+    play_audio_sfx(AUDIO_SFX_DISCONNECT, false);
 }
 static void bt_connecting_action(void *ctx)
 {
@@ -250,10 +253,8 @@ void app_main(void)
     esp_err_t esp_ret;
     bool init_success = true;
     int ret = 0;
+
     // Setup I2C (Can probably handle in driver)
-    /*
-    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-    */
     esp_ret = i2c_master_init();
     ESP_ERROR_CHECK(esp_ret);
 
@@ -275,8 +276,6 @@ void app_main(void)
         ESP_LOGE(MAIN_TAG, "Failed to init display task");
         init_success = false;
     }
-
-    // Init Logger (Probably not needed now)
 
     // Init event manager
     if (init_event_manager() < 0)
@@ -305,51 +304,11 @@ void app_main(void)
     }
 
     // Init RGBW LED manager
-    /*
-    gpio_config_t gp_cfg = {
-        .pin_bit_mask = GPIO_SEL_17,
-        .mode = GPIO_MODE_OUTPUT,
-    };
-    esp_ret = gpio_config(&gp_cfg);
-    ESP_ERROR_CHECK(esp_ret);
-
-    esp_ret = gpio_set_level(GPIO_NUM_17, 1);
-    ESP_ERROR_CHECK(ret);
-
-    rmt_config_t config = RMT_DEFAULT_CONFIG_TX(RGB_LED_DATA, RMT_TX_CHANNEL);
-    // set counter clock to 40MHz
-    config.clk_div = 2;
-
-    ESP_ERROR_CHECK(rmt_config(&config));
-    ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
-
-    // install ws2812 driver
-    led_strip_config_t strip_config = LED_STRIP_DEFAULT_CONFIG(1, (led_strip_dev_t)config.channel);
-    led_strip_t *strip = led_strip_new_rmt_ws2812(&strip_config);
-    if (!strip)
-    {
-        ESP_LOGE(MAIN_TAG, "install WS2812 driver failed");
-        init_success = false;
-    }
-    strip->clear(strip, 100);
-
-    for (int i = 0; i < 5; i++)
-    {
-        strip->set_pixel(strip, 0, 0, 128, 255);
-        strip->refresh(strip, 100);
-        vTaskDelay(pdMS_TO_TICKS(100));
-
-        strip->set_pixel(strip, 0, 0, 0, 0);
-        strip->refresh(strip, 100);
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    */
     esp_ret = init_rgb_manager();
     if (esp_ret != ESP_OK) {
         ESP_LOGE(MAIN_TAG, "Failed to init rgb manger");
         init_success = false;
     }
-    // set_rgb_state(RGB_PAIRING);
 
     // Display countdown timer
     for (int i = 10; i >= 0; i--)
@@ -415,10 +374,13 @@ void app_main(void)
     esp_ret = gpio_set_level(GPIO_NUM_4, 0);
     ESP_ERROR_CHECK(esp_ret);
 
+    bt_i2s_task_start_up();
+
 #ifdef CONFIG_AUDIO_ENABLED
     // Init Bluetooth Audio and register reader callback
     bt_audio_register_data_cb(read_data_stream);
     bt_audio_init();
+    set_rgb_state(RGB_PAIRING);
 #endif
 
     // Init TCPShell
@@ -434,12 +396,17 @@ void app_main(void)
         init_success = false;
     }
     else {
+        map_audio_sfx(AUDIO_SFX_POWERON, 1);
+        map_audio_sfx(AUDIO_SFX_CONNECT, 2);
+        map_audio_sfx(AUDIO_SFX_DISCONNECT, 5);
+        map_audio_sfx(AUDIO_SFX_VOLUME_UP, 0);
+        map_audio_sfx(AUDIO_SFX_VOLUME_DOWN, 0);
         // Test playing sound if audio manager initialized successfully
         for (int i=0; i<5; i++) {
-            play_audio_asset(0, false);
+            play_audio_sfx(AUDIO_SFX_VOLUME_UP, false);
             vTaskDelay(300 / portTICK_PERIOD_MS);
         }
-        play_audio_asset(1, false);
+        play_audio_sfx(AUDIO_SFX_POWERON, false);
     }
 
     time_t now;

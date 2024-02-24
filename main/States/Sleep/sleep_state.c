@@ -5,6 +5,7 @@
 #include "Framebuffer.h"
 #include "Font.h"
 #include "bt_audio.h"
+#include "i2s_task.h"
 
 #define TAG "DISPLAY_OFF_STATE"
 
@@ -28,6 +29,7 @@ int sleep_state_on_enter(state_manager_t *state_manager)
 int sleep_state_on_exit(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "sleep_state_on_exit");
+    bt_i2s_task_start_up();
     return 0;
 }
 int sleep_state_update(state_manager_t *state_manager)

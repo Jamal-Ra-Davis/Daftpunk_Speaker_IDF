@@ -50,6 +50,7 @@ static uint8_t rbuf[4096] __attribute__ ((aligned (4)));
 static uint8_t metadata_buf[AUDIO_META_DATA_SIZE];
 static char *audio_md_filename = "audio_md.bin";
 static audio_meta_data_t audio_meta_data[AUDIO_NUM_SLOTS] = {{.active = 0}};
+static int8_t audio_sfx_map[NUM_AUDIO_SFX];
 
 static nvm_command_data_t nvm_command_data = {.fp = NULL, .payload_size = 0, .bytes_remaining = 0};
 static load_audio_data_t audio_data_cache = {.active = false};
@@ -260,6 +261,11 @@ int audio_manager_init()
     char filename[64];
     FILE *f;
 
+    // Init audio sfx map
+    for (int i=0; i<NUM_AUDIO_SFX; i++) {
+        audio_sfx_map[i] = -1;
+    }
+
     // Create message queue for audio data
     audio_queue = xQueueCreate(AUDIO_QUEUE_LENGTH, sizeof(uint8_t));
     if (audio_queue == NULL)
@@ -339,6 +345,33 @@ int play_audio_asset(uint8_t audio_id, bool isr)
     }
 
     return (ret == pdTRUE) ? 0 : -1;
+}
+
+int play_audio_sfx(audio_sfx_t sfx, bool isr)
+{
+    if (sfx >= NUM_AUDIO_SFX) {
+        ESP_LOGE(TAG, "Invalid audio sfx ID (%u), must be between 0 and %u", (unsigned)sfx, NUM_AUDIO_SFX);
+        return -1;
+    }
+    int8_t audio_id = audio_sfx_map[sfx];
+    if (audio_id < 0) {
+        return -1;
+    }
+    return play_audio_asset((uint8_t)audio_id, isr);
+}
+
+int map_audio_sfx(audio_sfx_t sfx, uint8_t audio_id)
+{
+    if (audio_id >= AUDIO_NUM_SLOTS) {
+        ESP_LOGE(TAG, "Invalid audio ID (%u), must be between 0 and %u", audio_id, AUDIO_NUM_SLOTS);
+        return -1;
+    }
+    if (sfx >= NUM_AUDIO_SFX) {
+        ESP_LOGE(TAG, "Invalid audio sfx ID (%u), must be between 0 and %u", (unsigned)sfx, NUM_AUDIO_SFX);
+        return -1;
+    }
+    audio_sfx_map[sfx] = (int8_t)audio_id;
+    return 0;
 }
 
 int load_audio_start(uint8_t audio_id, char *filename, uint16_t filename_len, uint32_t payload_len)
