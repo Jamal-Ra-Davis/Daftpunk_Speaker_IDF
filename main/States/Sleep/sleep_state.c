@@ -6,6 +6,7 @@
 #include "Font.h"
 #include "bt_audio.h"
 #include "i2s_task.h"
+#include "audio_manager.h"
 
 #define TAG "DISPLAY_OFF_STATE"
 
@@ -21,6 +22,9 @@ int sleep_state_on_enter(state_manager_t *state_manager)
     buffer_clear(&display_buffer);
     buffer_update(&display_buffer);
 
+    // Block while playing audio as putting system to sleep will halt playback
+    play_audio_sfx_blocking(AUDIO_SFX_SLEEP, portMAX_DELAY);
+
     if (bt_audio_enabled()) {
         bt_audio_deinit();
     }
@@ -30,6 +34,7 @@ int sleep_state_on_exit(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "sleep_state_on_exit");
     bt_i2s_task_start_up();
+    play_audio_sfx(AUDIO_SFX_WAKE, false);
     return 0;
 }
 int sleep_state_update(state_manager_t *state_manager)
