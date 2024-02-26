@@ -1,0 +1,38 @@
+
+# Defines which audio assets should be loaded into flash and which slots to load them to
+audio_asset_mapping:
+  AUDIO_SFX_POWERON:
+    active: true
+    audio_id: 0
+    filename: "Better_Faster_Stronger-Sample.raw"
+    filename_dev: "boot0.bin"
+  AUDIO_SFX_SLEEP:
+    active: true
+    audio_id: 1
+    filename: "Popup_Close-1.raw"
+    filename_dev: "sleep0.bin"
+  AUDIO_SFX_WAKE:
+    active: true
+    audio_id: 2
+    filename: "Popup_Open-1.raw"
+    filename_dev:  "wake0.bin"
+  AUDIO_SFX_CONNECT:
+    active: true
+    audio_id: 3
+    filename: "confirmation_001.raw"
+    filename_dev: "connect0.bin" 
+  AUDIO_SFX_DISCONNECT:
+    active: true
+    audio_id: 4
+    filename: "question_002.raw"
+    filename_dev: "disconn0.bin"
+  AUDIO_SFX_VOLUME_UP:
+    active: true
+    audio_id: 5
+    filename: "select_sfx5.raw"
+    filename_dev: "vol0.bin"
+  AUDIO_SFX_VOLUME_DOWN:
+    active: false
+    audio_id: 6
+    filename: "select_sfx5.raw"
+    filename_dev: "vol0.bin"
