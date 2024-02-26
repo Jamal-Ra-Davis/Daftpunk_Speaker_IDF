@@ -39,7 +39,7 @@ int sleep_state_on_exit(state_manager_t *state_manager)
 }
 int sleep_state_update(state_manager_t *state_manager)
 {
-    ESP_LOGI(TAG, "sleep_state_update");
+    ESP_LOGD(TAG, "sleep_state_update");
 
     if (!state_manager) {
         return 0;

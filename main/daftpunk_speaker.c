@@ -423,16 +423,10 @@ void app_main(void)
     }
 
     // Test state manager
-    int info_idx = 0;
     init_system_states(&state_manager);
     while (1) {
         buffer_clear(&display_buffer);
         sm_update(&state_manager);
-        if (info_idx % 20 == 0) {
-            ESP_LOGI(MAIN_TAG, "Bluetooth audio enabled: %d", (int)bt_audio_enabled());
-            ESP_LOGI(MAIN_TAG, "Bluetooth audio connected: %d", (int)bt_audio_connected());
-        }
-        info_idx++;
         vTaskDelay(get_system_state_delay(&state_manager) / portTICK_PERIOD_MS);
     }
 

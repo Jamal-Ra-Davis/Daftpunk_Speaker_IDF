@@ -28,7 +28,7 @@ int display_off_state_on_exit(state_manager_t *state_manager)
 }
 int display_off_state_update(state_manager_t *state_manager)
 {
-    ESP_LOGI(TAG, "display_off_state_update");
+    ESP_LOGD(TAG, "display_off_state_update");
 
     if (!state_manager) {
         return 0;

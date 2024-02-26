@@ -73,7 +73,7 @@ int pairing_state_on_exit(state_manager_t *state_manager)
 }
 int pairing_state_update(state_manager_t *state_manager)
 {
-    ESP_LOGI(TAG, "pairing_state_update");
+    ESP_LOGD(TAG, "pairing_state_update");
 
     if (!state_manager) {
         return 0;
