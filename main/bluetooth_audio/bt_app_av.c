@@ -213,14 +213,12 @@ static void bt_av_hdl_a2d_evt(uint16_t event, void *p_param)
             active_connection = false;
             push_event(BT_AUDIO_DISCONNECTED, false);
             esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
-            //bt_i2s_task_shut_down();
         }
         else if (a2d->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED)
         {
             active_connection = true;
             push_event(BT_AUDIO_CONNECTED, false);
             esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
-            //bt_i2s_task_start_up();
         }
         else if (a2d->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTING)
         {

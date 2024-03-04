@@ -374,8 +374,8 @@ void app_main(void)
     esp_ret = gpio_set_level(GPIO_NUM_4, 0);
     ESP_ERROR_CHECK(esp_ret);
 
+    // Enable bluetooth and audio playback
     bt_i2s_task_start_up();
-
 #ifdef CONFIG_AUDIO_ENABLED
     // Init Bluetooth Audio and register reader callback
     bt_audio_register_data_cb(read_data_stream);

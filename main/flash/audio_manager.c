@@ -175,13 +175,6 @@ static int play_audio_asset_local(uint8_t audio_id)
         return -1;
     }
 
-    static bool first = true;
-
-    if (first) {
-        first = false;
-        bt_i2s_task_start_up();
-    }
-
 #ifdef CONFIG_AUDIO_ENABLED
     uint8_t vol = bt_audio_get_volume();
 #else 

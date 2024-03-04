@@ -287,9 +287,6 @@ void bt_audio_deinit()
     ESP_LOGI(BT_AV_TAG, "%s Shutting down bluetooth app task\n", __func__);
     bt_app_task_shut_down();
 
-    ESP_LOGI(BT_AV_TAG, "%s Shutting down I2S task\n", __func__);
-    bt_i2s_task_shut_down();
-
     ESP_LOGI(BT_AV_TAG, "%s Disabling bluedroid\n", __func__);
     if ((err = esp_bluedroid_disable()) != ESP_OK)
     {
