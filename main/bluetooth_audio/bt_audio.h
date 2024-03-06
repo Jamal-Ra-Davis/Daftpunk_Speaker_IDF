@@ -16,6 +16,7 @@ uint8_t bt_audio_get_volume();
 void bt_audio_set_volume(uint8_t volume);
 bool bt_audio_enabled();
 bool bt_audio_connected();
+char *bt_audio_get_device_name();
 #else
 static inline void bt_audio_init() {}
 static inline void bt_audio_deinit() {}
@@ -25,4 +26,5 @@ static inline uint8_t bt_audio_get_volume() {return 0;}
 static inline void bt_audio_set_volume(uint8_t volume) {}
 static inline bool bt_audio_enabled() {return false;}
 static inline bool bt_audio_connected() {return false;}
+static inline char *bt_audio_get_device_name() {return NULL;}
 #endif

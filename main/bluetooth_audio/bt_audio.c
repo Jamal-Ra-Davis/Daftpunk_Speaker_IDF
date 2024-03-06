@@ -328,3 +328,8 @@ bool bt_audio_connected()
 {
     return active_connection;
 }
+
+char *bt_audio_get_device_name()
+{
+    return LOCAL_DEVICE_NAME;
+}
