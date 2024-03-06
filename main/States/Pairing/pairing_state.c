@@ -3,8 +3,11 @@
 #include "esp_log.h"
 #include "rgb_manager.h"
 #include "Events.h"
+#include "Font.h"
+#include "Framebuffer.h"
 #include "global_defines.h"
 #include "bt_audio.h"
+#include "Animation.h"
 
 #define TAG "PAIRING_STATE"
 #define PAIRING_TIMEOUT_MS 30000
@@ -12,17 +15,96 @@
 /*******************************
  * Data Type Definitions
  ******************************/
+struct pairing_state_ctx {
+    animation_sequence_t eye_animation;
+    int idx;
+};
+
+typedef enum {PAIR_STATE_SEARCHING, PAIR_STATE_EYES, PAIR_STATE_CODE, NUM_PAIRING_STATES} pair_state_t;
+
+/*******************************
+ * Function Prototypes
+ ******************************/
+static void pairing_timeout_func(TimerHandle_t xTimer);
+
+static int pairing_state_searching_init(state_manager_t *state_manager);
+static int pairing_state_searching_on_enter(state_manager_t *state_manager);
+static int pairing_state_searching_on_exit(state_manager_t *state_manager);
+static int pairing_state_searching_update(state_manager_t *state_manager);
+
+static int pairing_state_eyes_init(state_manager_t *state_manager);
+static int pairing_state_eyes_on_enter(state_manager_t *state_manager);
+static int pairing_state_eyes_on_exit(state_manager_t *state_manager);
+static int pairing_state_eyes_update(state_manager_t *state_manager);
+
+static int pairing_state_code_init(state_manager_t *state_manager);
+static int pairing_state_code_on_enter(state_manager_t *state_manager);
+static int pairing_state_code_on_exit(state_manager_t *state_manager);
+static int pairing_state_code_update(state_manager_t *state_manager);
 
 /*******************************
  * Global Data
  ******************************/
 static TimerHandle_t xTimer;
 static bool pairing_timeout = false;
+static char *bt_name = NULL;
+static int bt_name_len = 0;
+static int idx = 0;
 
-/*******************************
- * Function Prototypes
- ******************************/
-static void pairing_timeout_func(TimerHandle_t xTimer);
+static state_manager_t pairing_state_manager;
+static struct pairing_state_ctx state_ctx;
+static animation_frame_t animation_frames[] = {
+    {
+        .id = BITMAP_EYE_OPEN,
+        .hold_cnt = 15,
+    },
+    {
+        .id = BITMAP_EYE_OPENING,
+        .hold_cnt = 5,
+    },
+    {
+        .id = BITMAP_EYE_CLOSED,
+        .hold_cnt = 5,
+    },
+    {
+        .id = BITMAP_EYE_OPENING,
+        .hold_cnt = 5,
+    },
+    {
+        .id = BITMAP_EYE_OPEN,
+        .hold_cnt = 15,
+    },
+    {
+        .id = BITMAP_EYE_LEFT,
+        .hold_cnt = 15,
+    },
+    {
+        .id = BITMAP_EYE_OPEN,
+        .hold_cnt = 5,
+    },
+    {
+        .id = BITMAP_EYE_RIGHT,
+        .hold_cnt = 15,
+    },
+};
+static state_element_t pairing_state_searching = {
+    .init = pairing_state_searching_init,
+    .on_enter = pairing_state_searching_on_enter,
+    .on_exit = pairing_state_searching_on_exit,
+    .update = pairing_state_searching_update,
+};
+static state_element_t pairing_state_eyes = {
+    .init = pairing_state_eyes_init,
+    .on_enter = pairing_state_eyes_on_enter,
+    .on_exit = pairing_state_eyes_on_exit,
+    .update = pairing_state_eyes_update,
+};
+static state_element_t pairing_state_code = {
+    .init = pairing_state_code_init,
+    .on_enter = pairing_state_code_on_enter,
+    .on_exit = pairing_state_code_on_exit,
+    .update = pairing_state_code_update,
+};
 
 /*******************************
  * Private Function Definitions
@@ -39,6 +121,17 @@ int pairing_state_init(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "pairing_state_init");
     xTimer = xTimerCreate("Pair_Timer", MS_TO_TICKS(PAIRING_TIMEOUT_MS), pdFALSE, NULL, pairing_timeout_func);
+
+
+    
+    // Init pairing state animation
+    animation_sequence_init(&state_ctx.eye_animation, animation_frames, sizeof(animation_frames) / sizeof(animation_frame_t));
+    
+    sm_setup_state_manager(&pairing_state_manager, NUM_PAIRING_STATES);
+    sm_register_state(&pairing_state_manager, PAIR_STATE_SEARCHING, pairing_state_searching);
+    sm_register_state(&pairing_state_manager, PAIR_STATE_EYES, pairing_state_eyes);
+    sm_register_state(&pairing_state_manager, PAIR_STATE_CODE, pairing_state_code);
+    sm_init(&pairing_state_manager, PAIR_STATE_SEARCHING, (void*)(&state_ctx));
     return 0;
 }
 int pairing_state_on_enter(state_manager_t *state_manager)
@@ -58,6 +151,14 @@ int pairing_state_on_enter(state_manager_t *state_manager)
         ESP_LOGE(TAG, "Failed to start timeout timer");
     }
     pairing_timeout = false;
+
+    idx = FRAME_BUF_COLS;
+    bt_name = bt_audio_get_device_name();
+    if (bt_name) {
+        bt_name_len = get_str_width(bt_name);
+    }
+
+    sm_change_state(&pairing_state_manager, PAIR_STATE_SEARCHING);
     return 0;
 }
 int pairing_state_on_exit(state_manager_t *state_manager)
@@ -121,5 +222,140 @@ int pairing_state_update(state_manager_t *state_manager)
         set_rgb_state(RGB_MANUAL);
         set_rgb_led(50, 100, 0);
     }    
+
+    sm_update(&pairing_state_manager);
+    return 0;
+}
+
+
+
+// TODO: Move pairing state machine function groups to their own sub-modules
+static int search_cnt = 0;
+static int pairing_state_searching_init(state_manager_t *state_manager)
+{
+    return 0;
+}
+static int pairing_state_searching_on_enter(state_manager_t *state_manager)
+{
+    struct pairing_state_ctx *ctx = (struct pairing_state_ctx*)(state_manager->ctx);
+    if (!ctx) {
+        return 0;
+    }
+    ctx->idx = FRAME_BUF_COLS;
+    search_cnt = 0;
+    return 0;
+}
+static int pairing_state_searching_on_exit(state_manager_t *state_manager)
+{
+    return 0;
+}
+static int pairing_state_searching_update(state_manager_t *state_manager)
+{
+    struct pairing_state_ctx *ctx = (struct pairing_state_ctx*)(state_manager->ctx);
+    if (!ctx) {
+        return 0;
+    }
+
+    buffer_clear(&display_buffer);
+    draw_str("SEARCHING FOR DEVICE", ctx->idx, 2, &display_buffer);
+    buffer_update(&display_buffer);
+
+    if (--ctx->idx <= -get_str_width("SEARCHING FOR DEVICE")) {
+        ctx->idx = FRAME_BUF_COLS;
+        search_cnt++;
+        if (search_cnt >= 2) {
+            sm_change_state(state_manager, PAIR_STATE_EYES);
+        }
+    }
+    return 0;
+}
+
+static bool move_up = true;
+static int eye_pos = 10;
+static int pairing_state_eyes_init(state_manager_t *state_manager)
+{   
+    return 0;
+}
+static int pairing_state_eyes_on_enter(state_manager_t *state_manager)
+{
+    struct pairing_state_ctx *ctx = (struct pairing_state_ctx*)(state_manager->ctx);
+    if (!ctx) {
+        return 0;
+    }
+    move_up = true;
+    ctx->idx = 0;
+    eye_pos = 10;
+    animation_sequence_set_frame(&ctx->eye_animation, 2);
+    return 0;
+}
+static int pairing_state_eyes_on_exit(state_manager_t *state_manager)
+{   
+    return 0;
+}
+static int pairing_state_eyes_update(state_manager_t *state_manager)
+{
+    struct pairing_state_ctx *ctx = (struct pairing_state_ctx*)(state_manager->ctx);
+    if (!ctx) {
+        return 0;
+    }
+
+    
+    buffer_clear(&display_buffer);
+    animation_sequence_update(&ctx->eye_animation);
+    animation_sequence_draw(&ctx->eye_animation, 4, 2, &display_buffer);
+    animation_sequence_draw(&ctx->eye_animation, 18, 2, &display_buffer);
+    buffer_update(&display_buffer);
+    
+    uint8_t frame_idx = 0;   
+    animation_sequence_get_frame(&ctx->eye_animation, &frame_idx);
+    ctx->idx++;
+    if (ctx->idx >= 500 && frame_idx == 2) {
+        sm_change_state(state_manager, PAIR_STATE_CODE);
+    }
+    return 0;
+}
+
+static int code_cnt = 0;
+static int pairing_state_code_init(state_manager_t *state_manager)
+{
+    return 0;
+}
+static int pairing_state_code_on_enter(state_manager_t *state_manager)
+{
+    struct pairing_state_ctx *ctx = (struct pairing_state_ctx*)(state_manager->ctx);
+    if (!ctx) {
+        return 0;
+    }
+    ctx->idx = FRAME_BUF_COLS;
+    code_cnt = 0;
+    return 0;
+}
+static int pairing_state_code_on_exit(state_manager_t *state_manager)
+{
+    return 0;
+}
+static int pairing_state_code_update(state_manager_t *state_manager)
+{
+    struct pairing_state_ctx *ctx = (struct pairing_state_ctx*)(state_manager->ctx);
+    if (!ctx) {
+        return 0;
+    }
+
+    if (bt_name) {
+        buffer_clear(&display_buffer);
+        draw_str(bt_name, ctx->idx, 2, &display_buffer);
+        buffer_update(&display_buffer);
+
+        if (--ctx->idx <= -bt_name_len) {
+            ctx->idx = FRAME_BUF_COLS;
+            code_cnt++;
+            if (code_cnt >= 2) {
+                sm_change_state(state_manager, PAIR_STATE_SEARCHING);
+            }
+        }
+    }
+    else {
+        sm_change_state(state_manager, PAIR_STATE_SEARCHING);
+    }
     return 0;
 }
