@@ -35,6 +35,7 @@ typedef struct {
 void buffer_reset(display_buffer_t *buffer);
 void buffer_clear(display_buffer_t *buffer);
 void buffer_copy(display_buffer_t *buffer);
+void buffer_invert(display_buffer_t *buffer);
 int buffer_set_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y);
 int buffer_clear_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y);
 int buffer_set_byte(display_buffer_t *buffer, uint8_t x, uint8_t y, uint8_t b);

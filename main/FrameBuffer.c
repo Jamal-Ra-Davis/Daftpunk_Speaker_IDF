@@ -44,6 +44,16 @@ void buffer_copy(display_buffer_t *buffer)
 {
     memcpy(buffer->wbuf, buffer->rbuf, sizeof(frame_buffer_t));
 }
+void buffer_invert(display_buffer_t *buffer)
+{
+    for (int i = 0; i < FRAME_BUF_ROWS; i++)
+    {
+        for (int j = 0; j < FRAME_BUF_COL_BYTES; j++)
+        {
+            buffer->wbuf->frame_buffer[i][j] = ~buffer->wbuf->frame_buffer[i][j];
+        }
+    }
+}
 int buffer_set_pixel(display_buffer_t *buffer, uint8_t x, uint8_t y)
 {
     if (x >= FRAME_BUF_COL_BYTES * BITS_PER_BYTE)
