@@ -76,3 +76,18 @@ int animation_sequence_set_frame(animation_sequence_t *seq, uint8_t frame_idx)
     seq->idx = 1;
     return 0;
 }
+int animation_sequence_get_frame(animation_sequence_t *seq, uint8_t *frame_idx)
+{   
+    if (seq == NULL) {
+        return -1;
+    }
+    if (frame_idx == NULL) {
+        return -1;
+    }
+    if (seq->frame_count == 0) {
+        return -1;
+    }
+    
+    *frame_idx = seq->current_frame;
+    return 0;
+}

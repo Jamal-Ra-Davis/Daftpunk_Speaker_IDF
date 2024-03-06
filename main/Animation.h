@@ -22,3 +22,4 @@ int animation_sequence_reset(animation_sequence_t *seq);
 int animation_sequence_update(animation_sequence_t *seq);
 int animation_sequence_draw(animation_sequence_t *seq, int x, int y, display_buffer_t *frame_buffer);
 int animation_sequence_set_frame(animation_sequence_t *seq, uint8_t frame_idx);
+int animation_sequence_get_frame(animation_sequence_t *seq, uint8_t *frame_idx);
