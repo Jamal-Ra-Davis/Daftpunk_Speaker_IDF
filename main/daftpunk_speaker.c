@@ -425,7 +425,6 @@ void app_main(void)
     // Test state manager
     init_system_states(&state_manager);
     while (1) {
-        buffer_clear(&display_buffer);
         sm_update(&state_manager);
         vTaskDelay(get_system_state_delay(&state_manager) / portTICK_PERIOD_MS);
     }
