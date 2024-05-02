@@ -5,6 +5,9 @@
 #include "Events.h"
 #include "global_defines.h"
 #include "bt_audio.h"
+#include "Bitmap.h"
+#include "Animation.h"
+#include "Framebuffer.h"
 
 #define TAG "PAIRING_FAIL_STATE"
 #define PAIRING_FAIL_TIMEOUT_MS 5000
@@ -18,6 +21,26 @@
  ******************************/
 static TimerHandle_t xTimer;
 static bool pairing_fail_timeout = false;
+static animation_sequence_t arrow_animation;
+static animation_frame_t arrow_frames[] = {
+    {
+        .id = BITMAP_ARROW_0,
+        .hold_cnt = 5,
+    },
+    {
+        .id = BITMAP_ARROW_1,
+        .hold_cnt = 5,
+    },
+    {
+        .id = BITMAP_ARROW_2,
+        .hold_cnt = 5,
+    },
+    {
+        .id = BITMAP_ARROW_3,
+        .hold_cnt = 5,
+    },
+};
+
 
 /*******************************
  * Function Prototypes
@@ -39,6 +62,7 @@ int pairing_fail_state_init(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "pairing_fail_state_init");
     xTimer = xTimerCreate("Pair_Fail_Timer", MS_TO_TICKS(PAIRING_FAIL_TIMEOUT_MS), pdFALSE, NULL, pairing_fail_timeout_func);
+    animation_sequence_init(&arrow_animation, arrow_frames, sizeof(arrow_frames) / sizeof(animation_frame_t));
     return 0;
 }
 int pairing_fail_state_on_enter(state_manager_t *state_manager)
@@ -98,6 +122,13 @@ int pairing_fail_state_update(state_manager_t *state_manager)
         sm_change_state(state_manager, IDLE_STATE_);
         return 0;
     }
+
+    buffer_clear(&display_buffer);
+    animation_sequence_update(&arrow_animation);
+    for (int i=0; i<(FRAME_BUF_COLS); i+=8) {
+        animation_sequence_draw(&arrow_animation, i, 0, &display_buffer);
+    }
+    buffer_update(&display_buffer);
 
     return 0;
 }
