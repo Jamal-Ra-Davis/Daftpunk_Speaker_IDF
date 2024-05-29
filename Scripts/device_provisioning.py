@@ -4,8 +4,8 @@ import socket
 import socket_test
 import sys
 import os
+import argparse
 
-HOST = "192.168.0.226"
 PORT = 3333
 
 scripts_dir = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -48,8 +48,18 @@ def flash_audio_asset_info(tcp_socket, mock):
     return 0
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Provisioning Script for Daftpunk Speaker")
+    parser.add_argument("--ip", type=str, required=True)
+    args = parser.parse_args()
+
+    if socket_test.check_ip(args.ip) == False:
+        print(f"Error: Invalid IP address ({args.ip})")
+        sys.exit(-1)
+
     with open(asset_info_path, 'r') as file:
         prime_service = yaml.safe_load(file)
+
+    HOST = args.ip
 
     tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp_socket.connect((HOST, PORT))

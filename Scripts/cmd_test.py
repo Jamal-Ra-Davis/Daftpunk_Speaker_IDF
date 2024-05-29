@@ -1,13 +1,14 @@
 import cmd, sys
 import socket
 import socket_test
+import argparse
 
 class TCPShell(cmd.Cmd):
     intro = 'Welcome to the TCPShell.   Type help or ? to list commands.\n'
     prompt = '>> '
     file = None
 
-    HOST = "192.168.0.226"
+    HOST = None
     PORT = 3333
     tcp_socket = None
 
@@ -102,6 +103,16 @@ def parse(arg):
     return tuple(map(int, arg.split()))
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Command interface to Daftpunk Speaker")
+    parser.add_argument("--ip", type=str, required=True)
+    args = parser.parse_args()
+
+    if socket_test.check_ip(args.ip) == False:
+        print(f"Error: Invalid IP address ({args.ip})")
+        sys.exit(-1)
+
+    TCPShell.HOST = args.ip
+    print(f"Attempting to connect to device at IP: {TCPShell.HOST}...")
     TCPShell.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     TCPShell.tcp_socket.connect((TCPShell.HOST, TCPShell.PORT))
     TCPShell().cmdloop()

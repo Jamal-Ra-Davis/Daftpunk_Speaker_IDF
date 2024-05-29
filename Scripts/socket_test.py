@@ -10,6 +10,19 @@ import alive_progress
 
 DEBUG_ENABLE = False
 
+def check_ip(ip):
+    ip_split = ip.split('.')
+    if len(ip_split) != 4:
+        return False
+    for i in ip_split:
+        try:
+            val = int(i)
+            if (val > 255):
+                return False
+        except:
+            return False
+    return True
+
 @dataclass
 class TCPMessage:
     message_id: int
