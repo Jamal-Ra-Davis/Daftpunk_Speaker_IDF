@@ -33,6 +33,9 @@
 #include "state_manager.h"
 #include "system_states_.h"
 
+#include "driver/adc.h"
+#include "soc/adc_channel.h"
+
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
 
@@ -412,6 +415,24 @@ void app_main(void)
     localtime_r(&now, &timeinfo);
     strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
     ESP_LOGI(MAIN_TAG, "The current date/time in PST is: %s", strftime_buf);
+
+    gpio_config_t adc_gp_cfg = {
+        .pin_bit_mask = GPIO_SEL_2,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+    };
+    esp_ret = gpio_config(&adc_gp_cfg);
+    adc_power_acquire();
+    adc2_config_channel_atten(ADC2_GPIO2_CHANNEL, ADC_ATTEN_DB_11);
+
+    
+    for (int i=0; i<10; i++) {
+        int reading; 
+        adc2_get_raw(ADC2_GPIO2_CHANNEL, ADC_WIDTH_BIT_12, &reading);
+        uint32_t voltage = (reading * 2450) / 4095;//esp_adc_cal_raw_to_voltage(reading, adc_chars);
+        ESP_LOGI(MAIN_TAG, "V_ID voltage = %u mV, raw = %u", voltage, reading);
+        vTaskDelay(50 / portTICK_PERIOD_MS);
+    }
 
     int time_str_len = get_str_width(strftime_buf);
     for (int i = FRAME_BUF_COLS; i >= -time_str_len; i--)
