@@ -44,7 +44,7 @@ int menu_state_update(state_manager_t *state_manager)
     bool back = false;
     bool select = false;
     bool cancel = false;
-    system_event_t event;
+    em_system_event_t event;
     QueueHandle_t event_queue = ctx->event_queue;
     while (xQueueReceive(event_queue, &event, 0) == pdTRUE) {
         ESP_LOGI(TAG, "Event Received: %d", (int)event);

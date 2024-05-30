@@ -189,7 +189,7 @@ int pairing_state_update(state_manager_t *state_manager)
     bool pair_connecting = false;
     bool pair_exit = false;
     bool bluetooth_connected = bt_audio_connected();
-    system_event_t event;
+    em_system_event_t event;
     QueueHandle_t event_queue = ctx->event_queue;
     while (xQueueReceive(event_queue, &event, 0) == pdTRUE) {
         ESP_LOGI(TAG, "Event Received: %d", (int)event);

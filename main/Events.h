@@ -22,14 +22,14 @@ typedef enum
     FIRST_AUDIO_PACKET,
     STREAMING_TIMEOUT,
     NUM_EVENTS,
-} system_event_t;
+} em_system_event_t;
 
 typedef void (*event_callback_t)(void *ctx);
 
 int init_event_manager();
-int register_event_callback(system_event_t event, event_callback_t cb, void *ctx);
-int unregister_event_callback(system_event_t event, event_callback_t cb);
-bool event_callback_registered(system_event_t event);
-int push_event(system_event_t event, bool isr);
+int register_event_callback(em_system_event_t event, event_callback_t cb, void *ctx);
+int unregister_event_callback(em_system_event_t event, event_callback_t cb);
+bool event_callback_registered(em_system_event_t event);
+int push_event(em_system_event_t event, bool isr);
 QueueHandle_t get_event_queue_handle();
 TaskHandle_t event_task_handle();

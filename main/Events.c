@@ -39,7 +39,7 @@ int init_event_manager()
         event_callbacks[i].ctx = NULL;
     }
 
-    event_queue = xQueueCreate(MAX_EVENTS, sizeof(system_event_t));
+    event_queue = xQueueCreate(MAX_EVENTS, sizeof(em_system_event_t));
     if (event_queue == NULL)
     {
         ESP_LOGI(EVENTS_TAG, "Failed to create event queue");
@@ -65,7 +65,7 @@ int init_event_manager()
         &xevent_task);
     return 0;
 }
-int register_event_callback(system_event_t event, event_callback_t cb, void *ctx)
+int register_event_callback(em_system_event_t event, event_callback_t cb, void *ctx)
 {
     if (event >= NUM_EVENTS)
     {
@@ -85,7 +85,7 @@ int register_event_callback(system_event_t event, event_callback_t cb, void *ctx
     xSemaphoreGive(event_mutex);
     return 0;
 }
-int unregister_event_callback(system_event_t event, event_callback_t cb)
+int unregister_event_callback(em_system_event_t event, event_callback_t cb)
 {
     if (event >= NUM_EVENTS)
     {
@@ -105,7 +105,7 @@ int unregister_event_callback(system_event_t event, event_callback_t cb)
     xSemaphoreGive(event_mutex);
     return 0;
 }
-bool event_callback_registered(system_event_t event)
+bool event_callback_registered(em_system_event_t event)
 {
     if (event >= NUM_EVENTS)
     {
@@ -123,7 +123,7 @@ bool event_callback_registered(system_event_t event)
     xSemaphoreGive(event_mutex);
     return result;
 }
-int push_event(system_event_t event, bool isr)
+int push_event(em_system_event_t event, bool isr)
 {
     if (event_queue == NULL)
     {
@@ -154,7 +154,7 @@ QueueHandle_t get_event_queue_handle()
         return NULL;
     }
     // Create event queue
-    QueueHandle_t queue = xQueueCreate(MAX_EVENTS, sizeof(system_event_t));
+    QueueHandle_t queue = xQueueCreate(MAX_EVENTS, sizeof(em_system_event_t));
     if (queue == NULL) {
         return NULL;
     }
@@ -189,7 +189,7 @@ static void event_manager_task(void *pvParameters)
         vTaskDelete(NULL);
     }
 
-    system_event_t event;
+    em_system_event_t event;
     while (1)
     {
         xQueueReceive(event_queue, &event, portMAX_DELAY);
