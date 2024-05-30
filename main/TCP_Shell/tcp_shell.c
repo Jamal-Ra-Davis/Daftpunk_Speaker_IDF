@@ -26,7 +26,6 @@
 #include "audio_manager.h"
 #include "Stack_Info.h"
 
-
 #define TCP_SHELL_TASK_STACK_SIZE 4096
 #define TCP_SHELL_TASK_TAG "TCP_Shell_Task"
 #define BUF_SZ 2048
@@ -88,6 +87,18 @@ TaskHandle_t tcp_handler_task_handle()
 TaskHandle_t tcp_server_task_handle()
 {
     return xtcp_server_task;
+}
+
+int get_tcp_ip(char *buf, size_t size)
+{
+    esp_netif_ip_info_t ip_info;
+    esp_err_t err = esp_netif_get_ip_info(get_example_netif(), &ip_info);
+    if (err != ESP_OK) {
+            return -1;
+    }
+    size_t N = snprintf(buf, size, IPSTR ":%d", IP2STR(&ip_info.ip), PORT);
+    ESP_LOGI(TCP_SHELL_TASK_TAG, "TEST IP - %s", buf);
+    return 0;
 }
 
 // Private Functions
