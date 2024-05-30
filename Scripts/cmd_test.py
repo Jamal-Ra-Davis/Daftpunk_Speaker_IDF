@@ -73,6 +73,14 @@ class TCPShell(cmd.Cmd):
         print("NOTE: Device will need to be reset after formatting for filesystem to be created")
         socket_test.send_message(self.tcp_socket, socket_test.MessageID.NVM_ERASE_CHIP, None, False)
 
+    def do_get_stack_info(self, arg):
+        'Returns Stack Information: get_stack_info'
+        try:
+            info = socket_test.get_stack_info(self.tcp_socket)
+            print(info)
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
     def do_exit(self, arg):
         'Stop recording, close the turtle window, and exit:  BYE'
         print('Exiting TCPShell...')

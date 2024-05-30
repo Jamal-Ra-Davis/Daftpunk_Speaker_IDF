@@ -32,6 +32,7 @@
 
 #include "state_manager.h"
 #include "system_states_.h"
+#include "Stack_Info.h"
 
 #include "driver/adc.h"
 #include "soc/adc_channel.h"
@@ -433,6 +434,8 @@ void app_main(void)
         ESP_LOGI(MAIN_TAG, "V_ID voltage = %u mV, raw = %u", voltage, reading);
         vTaskDelay(50 / portTICK_PERIOD_MS);
     }
+
+    print_stack_info();
 
     int time_str_len = get_str_width(strftime_buf);
     for (int i = FRAME_BUF_COLS; i >= -time_str_len; i--)

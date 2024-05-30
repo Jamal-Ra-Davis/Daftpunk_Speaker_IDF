@@ -24,6 +24,7 @@
 #include "freertos/semphr.h"
 #include "flash_manager.h"
 #include "audio_manager.h"
+#include "Stack_Info.h"
 
 
 #define TCP_SHELL_TASK_STACK_SIZE 4096
@@ -39,7 +40,8 @@
 
 // File Globals
 static SemaphoreHandle_t xDataReadySem;
-static TaskHandle_t xtcp_shell_task = NULL;
+static TaskHandle_t xtcp_handler_task = NULL;
+static TaskHandle_t xtcp_server_task = NULL;
 static bool shell_active = false;
 static char rx_buffer[BUF_SZ];
 static char tx_buffer[BUF_SZ];
@@ -63,13 +65,13 @@ int init_tcp_shell_task()
     }
 
 #ifdef CONFIG_EXAMPLE_IPV4
-    xTaskCreate(tcp_server_task, TCP_SHELL_TASK_TAG, TCP_SHELL_TASK_STACK_SIZE, (void *)AF_INET, 5, NULL);
+    xTaskCreate(tcp_server_task, "tcp_server", TCP_SHELL_TASK_STACK_SIZE, (void *)AF_INET, 5, &xtcp_server_task);
 #endif
 #ifdef CONFIG_EXAMPLE_IPV6
-    xTaskCreate(tcp_server_task, TCP_SHELL_TASK_TAG, TCP_SHELL_TASK_STACK_SIZE, (void *)AF_INET6, 5, NULL);
+    xTaskCreate(tcp_server_task, "tcp_server", TCP_SHELL_TASK_STACK_SIZE, (void *)AF_INET6, 5, &xtcp_server_task);
 #endif
 
-    xTaskCreate(tcp_handler_task, "tcp_handler", 4096, NULL, 4, NULL);
+    xTaskCreate(tcp_handler_task, "tcp_handler", 4096, NULL, 4, &xtcp_handler_task);
     return 0;
 }
 
@@ -79,11 +81,14 @@ int stop_tcp_shell_task()
     return 0;
 }
 
-TaskHandle_t tcp_shell_task_handle()
+TaskHandle_t tcp_handler_task_handle()
 {
-    return NULL;
+    return xtcp_handler_task;
 }
-
+TaskHandle_t tcp_server_task_handle()
+{
+    return xtcp_server_task;
+}
 
 // Private Functions
 uint16_t simple_crc16(uint8_t start, uint8_t *buf, uint32_t len)
@@ -396,6 +401,17 @@ static void tcp_handler_task(void *pvParameters)
                 ret = play_audio_asset(play_audio_asset_msg->audio_id, false);
                 resp->header.message_id = (ret == 0) ? ACK : NACK;
                 break;
+            case STACK_INFO:
+                ESP_LOGI(TCP_SHELL_TASK_TAG, "STACK_INFO MSG_ID");
+                resp->header.message_id = STACK_INFO;
+                int size = get_stack_info((char*)resp->payload, sizeof(tx_buffer) - sizeof(tcp_message_t));
+                if (size > 0) {
+                    resp->header.payload_size = (uint32_t)size;
+                }
+                else {
+                    resp->header.message_id = NACK;
+                }
+                break;
             default:
                 break;
         }
@@ -427,6 +443,6 @@ static void tcp_handler_task(void *pvParameters)
             to_write -= written;
         }
     }
-
+    xtcp_handler_task = NULL;
     vTaskDelete(NULL);
 }

@@ -21,6 +21,7 @@ set(srcs "Events.c"
          "States/DisplayOff/display_off_state.c"
          "States/Streaming/streaming_state.c"
          "States/Sleep/sleep_state.c"
+         "Misc/Stack_Info.c"
          "Bitmap.c"
          "Animation.c"
          "daftpunk_speaker.c")
@@ -54,4 +55,5 @@ idf_component_register(SRCS ${srcs}
                                  "TCP_Shell"
                                  "flash"
                                  "StateManager"
-                                 "States")
+                                 "States"
+                                 "Misc")

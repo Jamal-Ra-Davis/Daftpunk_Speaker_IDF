@@ -229,6 +229,12 @@ def play_audio_asset(sock, audio_id):
     if (resp.message_id != MessageID.ACK):
         raise Exception("Device did not ACK back")
 
+def get_stack_info(sock):
+        resp = send_message(sock, MessageID.STACK_INFO, None, True)
+        if (resp.message_id != MessageID.STACK_INFO):
+            raise Exception("Invalid response")
+        return str(resp.payload.decode())
+
 if __name__ == '__main__':
     HOST = "192.168.0.226"
     PORT = 3333
