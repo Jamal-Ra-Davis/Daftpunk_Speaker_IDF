@@ -13,6 +13,18 @@ typedef enum {
     AUDIO_LOAD_START,
     AUDIO_META_DATA,
     PLAY_AUDIO_ASSET,
+    STACK_INFO,
+    I2C_BUS_SCAN,
+    I2C_WRITE,
+    I2C_WRITE_READ,
+    MEM_READ,
+    MEM_WRITE,
+    GPIO_CONFIG,
+    GPIO_READ,
+    GPIO_WRITE,
+    ADC_READ,
+    BATT_GET_SOC,
+    BATT_GET_VOLTAGE,
 } message_id_t;
 
 typedef struct __attribute__((packed))

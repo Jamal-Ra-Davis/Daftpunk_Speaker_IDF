@@ -44,6 +44,18 @@ class MessageID(IntEnum):
     AUDIO_LOAD_START = 8
     AUDIO_META_DATA = 9
     PLAY_AUDIO_ASSET = 10
+    STACK_INFO = 11
+    I2C_BUS_SCAN = 12
+    I2C_WRITE = 13
+    I2C_WRITE_READ = 14
+    MEM_READ = 15
+    MEM_WRITE = 16
+    GPIO_CONFIG = 17
+    GPIO_READ = 18
+    GPIO_WRITE = 19
+    ADC_READ = 20
+    BATT_GET_SOC = 21
+    BATT_GET_VOLTAGE = 22
 
 def simple_crc16(start, buf):
     if (buf == None): 
