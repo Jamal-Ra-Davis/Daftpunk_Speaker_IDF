@@ -25,6 +25,7 @@
 #include "flash_manager.h"
 #include "audio_manager.h"
 #include "Stack_Info.h"
+#include "Events.h"
 
 #define TCP_SHELL_TASK_STACK_SIZE 4096
 #define TCP_SHELL_TASK_TAG "TCP_Shell_Task"
@@ -280,6 +281,7 @@ static void tcp_server_task(void *pvParameters)
     }
 
     shell_active = true;
+    push_event(WIFI_READY, false);
     while (1)
     {
 
@@ -311,9 +313,7 @@ static void tcp_server_task(void *pvParameters)
         }
 #endif
         ESP_LOGI(TCP_SHELL_TASK_TAG, "Socket accepted ip address: %s", addr_str);
-        // TODO: Replace with pushing event whose callback plays the sound.
-        // Need to change system_events_t enum name as ESP code already uses that
-        play_audio_sfx(AUDIO_SFX_CONNECT, false);
+        push_event(WIFI_CONNECTED, false);
 
         sock_handle = sock;
         do_retransmit(sock);
@@ -321,7 +321,7 @@ static void tcp_server_task(void *pvParameters)
 
         shutdown(sock, 0);
         close(sock);
-        play_audio_sfx(AUDIO_SFX_DISCONNECT, false);
+        push_event(WIFI_DISCONNECTED, false);
     }
 
 CLEAN_UP:

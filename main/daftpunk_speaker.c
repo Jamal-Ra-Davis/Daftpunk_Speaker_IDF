@@ -203,6 +203,17 @@ void soc_low_cb(void *ctx)
     ESP_LOGE(MAIN_TAG, "Battery level low, please recharge soon");
     set_rgb_state(RGB_LOW_BATTERY);
 }
+void wifi_connected_cb(void *ctx)
+{
+    ESP_LOGI(MAIN_TAG, "WIFI Connected");
+    play_audio_sfx(AUDIO_SFX_CONNECT, false);
+}
+void wifi_disconnected_cb(void *ctx)
+{
+    ESP_LOGI(MAIN_TAG, "WIFI Disconnected");
+    play_audio_sfx(AUDIO_SFX_DISCONNECT, false);
+}
+
 
 static esp_err_t i2c_master_init(void)
 {
@@ -299,6 +310,9 @@ void app_main(void)
     ret |= register_event_callback(BT_AUDIO_CONNECTED, bt_connected_action, NULL);
     ret |= register_event_callback(BT_AUDIO_DISCONNECTED, bt_disconnected_action, NULL);
     ret |= register_event_callback(BT_AUDIO_CONNECTING, bt_connecting_action, NULL);
+
+    ret |= register_event_callback(WIFI_CONNECTED, wifi_connected_cb, NULL);
+    ret |= register_event_callback(WIFI_DISCONNECTED, wifi_disconnected_cb, NULL);
 
     // Init button manager
     if (init_buttons() < 0)

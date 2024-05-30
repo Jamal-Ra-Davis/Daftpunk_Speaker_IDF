@@ -21,6 +21,9 @@ typedef enum
     BT_AUDIO_CONNECTING,
     FIRST_AUDIO_PACKET,
     STREAMING_TIMEOUT,
+    WIFI_READY,
+    WIFI_CONNECTED,
+    WIFI_DISCONNECTED,
     NUM_EVENTS,
 } em_system_event_t;
 
