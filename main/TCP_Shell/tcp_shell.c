@@ -99,7 +99,7 @@ int get_tcp_ip(char *buf, size_t size)
     }
     size_t N = snprintf(buf, size, IPSTR ":%d", IP2STR(&ip_info.ip), PORT);
     ESP_LOGI(TCP_SHELL_TASK_TAG, "TEST IP - %s", buf);
-    return 0;
+    return N;
 }
 
 // Private Functions

@@ -9,6 +9,10 @@
 #include "bt_audio.h"
 #include "Animation.h"
 
+#if defined(CONFIG_WIFI_ENABLED)
+#include "tcp_shell.h"
+#endif
+
 #define TAG "PAIRING_STATE"
 #define PAIRING_TIMEOUT_MS 30000
 
@@ -50,6 +54,12 @@ static bool pairing_timeout = false;
 static char *bt_name = NULL;
 static int bt_name_len = 0;
 static int idx = 0;
+
+#if defined(CONFIG_WIFI_ENABLED)
+static bool valid_ip = false;
+static int ip_address_len = 0;
+static char ip_address[64] = {'\0'};
+#endif
 
 static state_manager_t pairing_state_manager;
 static struct pairing_state_ctx state_ctx;
@@ -158,6 +168,13 @@ int pairing_state_on_enter(state_manager_t *state_manager)
         bt_name_len = get_str_width(bt_name);
     }
 
+#if defined(CONFIG_WIFI_ENABLED)
+    valid_ip = (get_tcp_ip(ip_address, sizeof(ip_address)) > 0);
+    if (valid_ip) {
+        ip_address_len = get_str_width(ip_address);
+    }
+#endif
+
     sm_change_state(&pairing_state_manager, PAIR_STATE_SEARCHING);
     return 0;
 }
@@ -202,6 +219,18 @@ int pairing_state_update(state_manager_t *state_manager)
         if (event == PAIR_LONG_PRESS) {
             pair_exit = true;
         }
+#if defined(CONFIG_WIFI_ENABLED)
+        if (event == WIFI_READY) {
+            ESP_LOGI(TAG, "WIFI READY");
+            valid_ip = (get_tcp_ip(ip_address, sizeof(ip_address)) > 0);
+            if (valid_ip) {
+                ip_address_len = get_str_width(ip_address);
+            }
+        }
+        if (event == WIFI_CONNECTED) {
+            pair_connected = true;
+        }
+#endif
     }
 
     // State changes:
@@ -241,7 +270,7 @@ static int pairing_state_searching_on_enter(state_manager_t *state_manager)
     if (!ctx) {
         return 0;
     }
-    ctx->idx = FRAME_BUF_COLS;
+    ctx->idx = 2*FRAME_BUF_COLS;
     search_cnt = 0;
     return 0;
 }
@@ -257,11 +286,11 @@ static int pairing_state_searching_update(state_manager_t *state_manager)
     }
 
     buffer_clear(&display_buffer);
-    draw_str("SEARCHING FOR DEVICE", ctx->idx, 2, &display_buffer);
+    draw_str("SEARCHING FOR DEVICE", ctx->idx / 2, 2, &display_buffer);
     buffer_update(&display_buffer);
 
-    if (--ctx->idx <= -get_str_width("SEARCHING FOR DEVICE")) {
-        ctx->idx = FRAME_BUF_COLS;
+    if ((--ctx->idx / 2) <= -get_str_width("SEARCHING FOR DEVICE")) {
+        ctx->idx = 2*FRAME_BUF_COLS;
         search_cnt++;
         if (search_cnt >= 2) {
             sm_change_state(state_manager, PAIR_STATE_EYES);
@@ -326,7 +355,7 @@ static int pairing_state_code_on_enter(state_manager_t *state_manager)
     if (!ctx) {
         return 0;
     }
-    ctx->idx = FRAME_BUF_COLS;
+    ctx->idx = 2*FRAME_BUF_COLS;
     code_cnt = 0;
     return 0;
 }
@@ -343,17 +372,32 @@ static int pairing_state_code_update(state_manager_t *state_manager)
 
     if (bt_name) {
         buffer_clear(&display_buffer);
-        draw_str(bt_name, ctx->idx, 2, &display_buffer);
+        draw_str(bt_name, ctx->idx / 2, 2, &display_buffer);
         buffer_update(&display_buffer);
 
-        if (--ctx->idx <= -bt_name_len) {
-            ctx->idx = FRAME_BUF_COLS;
+        if ((--ctx->idx / 2) <= -bt_name_len) {
+            ctx->idx = 2*FRAME_BUF_COLS;
             code_cnt++;
             if (code_cnt >= 2) {
                 sm_change_state(state_manager, PAIR_STATE_SEARCHING);
             }
         }
     }
+#if defined(CONFIG_WIFI_ENABLED)
+    else if (valid_ip) {
+        buffer_clear(&display_buffer);
+        draw_str(ip_address, ctx->idx / 2, 2, &display_buffer);
+        buffer_update(&display_buffer);
+
+        if ((--ctx->idx / 2) <= -ip_address_len) {
+            ctx->idx = 2*FRAME_BUF_COLS;
+            code_cnt++;
+            if (code_cnt >= 5) {
+                sm_change_state(state_manager, PAIR_STATE_SEARCHING);
+            }
+        }
+    }
+#endif
     else {
         sm_change_state(state_manager, PAIR_STATE_SEARCHING);
     }
