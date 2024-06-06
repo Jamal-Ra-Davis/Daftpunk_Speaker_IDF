@@ -81,6 +81,43 @@ class TCPShell(cmd.Cmd):
         except Exception as e:
             print(f"Error: {e} - ({type(e).__name__})")
 
+    def do_i2c_write(self, arg):
+        'i2c_write <device_address> <reg_address> <payload>'
+        arg_list = arg.split()
+        if (len(arg_list) < 3):
+            print("Error: Invalid input, need at least 3 arguments")
+            return
+        device_address = int(arg_list[0], 0)
+        reg_address = int(arg_list[1], 0)
+        payload = socket_test.string_to_bytearray(arg_list[2:])
+        print(f"Device Address: {device_address}")
+        print(f"Reg Address: {reg_address}")
+        print(f"Payload: {payload}")
+
+        try:
+            socket_test.i2c_write(self.tcp_socket, device_address, reg_address, payload)
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_i2c_write_read(self, arg):
+        'i2c_write_read <device_address> <reg_address> <read_len>'
+        arg_list = arg.split()
+        if (len(arg_list) != 3):
+            print("Error: Invalid input, needs 3 arguments")
+            return
+        device_address = int(arg_list[0], 0)
+        reg_address = int(arg_list[1], 0)
+        read_len = int(arg_list[2], 0)
+        print(f"Device Address: {device_address}")
+        print(f"Reg Address: {reg_address}")
+        print(f"Read Len: {read_len}")
+
+        try:
+            resp = socket_test.i2c_write_read(self.tcp_socket, device_address, reg_address, read_len)
+            print(f"Resp: {resp}")
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
     def do_exit(self, arg):
         'Stop recording, close the turtle window, and exit:  BYE'
         print('Exiting TCPShell...')

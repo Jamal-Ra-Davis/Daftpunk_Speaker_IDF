@@ -9,6 +9,8 @@ from enum import IntEnum
 import alive_progress
 
 DEBUG_ENABLE = False
+MAX_UINT16 = (2**16 - 1)
+MAX_UINT8 = (2**8 -1)
 
 def check_ip(ip):
     ip_split = ip.split('.')
@@ -56,6 +58,13 @@ class MessageID(IntEnum):
     ADC_READ = 20
     BATT_GET_SOC = 21
     BATT_GET_VOLTAGE = 22
+
+def string_to_bytearray(byte_list):
+    out = bytearray()
+    for element in byte_list:
+        val = int(element, 16)
+        out.append(val)
+    return out
 
 def simple_crc16(start, buf):
     if (buf == None): 
@@ -234,6 +243,66 @@ def get_stack_info(sock):
         if (resp.message_id != MessageID.STACK_INFO):
             raise Exception("Invalid response")
         return str(resp.payload.decode())
+
+def i2c_write(sock, dev_addr, reg_addr, payload, timeout=500):
+    bus = 0
+    if (isinstance(dev_addr, int) == False):
+        raise Exception(f"dev_addr ({dev_addr}), must be an integer")
+    if (dev_addr < 0 or dev_addr >= 128):
+        raise Exception(f"Invalid dev_addr ({dev_addr}), must be an integer between 0 and 127")
+    
+    if (isinstance(reg_addr, int) == False):
+        raise Exception(f"reg_addr ({reg_addr}), must be an integer")
+    if (reg_addr < 0 or reg_addr > MAX_UINT8):
+        raise Exception(f"Invalid reg_addr ({reg_addr}), must be an integer between 0 and  {MAX_UINT8}")
+    
+    if (isinstance(timeout, int) == False):
+        raise Exception(f"timeout ({timeout}), must be an integer")
+    if (timeout < 0 or timeout > MAX_UINT16):
+        raise Exception(f"Invalid timeout ({timeout}), must be an integer between 0 and {MAX_UINT16}")
+    
+    length = len(payload) + 1
+    if (length >= MAX_UINT16):
+        raise Exception(f"Invalid length ({length}), must be less than or equal to {MAX_UINT16}")
+    
+    message_payload = struct.pack("<BBHHB", bus, dev_addr, timeout, length, reg_addr)
+    message_payload += payload
+    resp = send_message(sock, MessageID.I2C_WRITE, message_payload, True)
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.ACK):
+        raise Exception("Device did not ACK back")
+    
+def i2c_write_read(sock, dev_addr, reg_addr, length, timeout=500):
+    bus = 0
+    if (isinstance(dev_addr, int) == False):
+        raise Exception(f"dev_addr ({dev_addr}), must be an integer")
+    if (dev_addr < 0 or dev_addr >= 128):
+        raise Exception(f"Invalid dev_addr ({dev_addr}), must be an integer between 0 and 127")
+    
+    if (isinstance(reg_addr, int) == False):
+        raise Exception(f"reg_addr ({reg_addr}), must be an integer")
+    if (reg_addr < 0 or reg_addr > MAX_UINT8):
+        raise Exception(f"Invalid reg_addr ({reg_addr}), must be an integer between 0 and  {MAX_UINT8}")
+    
+    if (isinstance(timeout, int) == False):
+        raise Exception(f"timeout ({timeout}), must be an integer")
+    if (timeout < 0 or timeout > MAX_UINT16):
+        raise Exception(f"Invalid timeout ({timeout}), must be an integer between 0 and {MAX_UINT16}")
+    
+    if (length >= MAX_UINT16):
+        raise Exception(f"Invalid length ({length}), must be less than or equal to {MAX_UINT16}")
+    
+    message_payload = struct.pack("<BBHBH", bus, dev_addr, timeout, reg_addr, length)
+    resp = send_message(sock, MessageID.I2C_WRITE_READ, message_payload, True)
+
+    if (resp.message_id != MessageID.I2C_WRITE_READ):
+        raise Exception("Invalid response")
+
+    if (resp):
+        print(resp)
+
+    return resp.payload
 
 if __name__ == '__main__':
     HOST = "192.168.0.226"

@@ -17,9 +17,11 @@ typedef enum {
     I2C_BUS_SCAN,
     I2C_WRITE,
     I2C_WRITE_READ,
+    MEM_READ_SCRATCH,
     MEM_READ,
     MEM_WRITE,
-    GPIO_CONFIG,
+    GPIO_GET_CONFIG,
+    GPIO_SET_CONFIG,
     GPIO_READ,
     GPIO_WRITE,
     ADC_READ,
@@ -57,3 +59,19 @@ typedef struct __attribute__((packed))
 {
     uint8_t audio_id;
 } play_audio_asset_message_t;
+typedef struct __attribute__((packed))
+{
+    uint8_t bus;
+    uint8_t dev_addr;
+    uint16_t timeout;
+    uint16_t len;
+    uint8_t wbuf[0];
+} i2c_write_message_t;
+typedef struct __attribute__((packed))
+{
+    uint8_t bus;
+    uint8_t dev_addr;
+    uint16_t timeout;
+    uint8_t reg_addr;
+    uint16_t len;
+} i2c_write_read_message_t;
