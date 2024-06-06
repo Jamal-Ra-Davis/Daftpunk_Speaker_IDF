@@ -22,16 +22,12 @@
 #include <stdint.h>
 #include <rom/crc.h>
 #include "freertos/semphr.h"
-#include "flash_manager.h"
-#include "audio_manager.h"
-#include "Stack_Info.h"
 #include "Events.h"
 
-#include "driver/i2c.h"
+#include "message_handlers/message_handlers.h"
 
 #define TCP_SHELL_TASK_STACK_SIZE 4096
 #define TCP_SHELL_TASK_TAG "TCP_Shell_Task"
-#define BUF_SZ 2048
 
 #define PORT CONFIG_EXAMPLE_PORT
 #define KEEPALIVE_IDLE CONFIG_EXAMPLE_KEEPALIVE_IDLE
@@ -45,13 +41,9 @@ static SemaphoreHandle_t xDataReadySem;
 static TaskHandle_t xtcp_handler_task = NULL;
 static TaskHandle_t xtcp_server_task = NULL;
 static bool shell_active = false;
-static char rx_buffer[BUF_SZ];
-static char tx_buffer[BUF_SZ];
+static char rx_buffer[TCP_SHELL_BUF_SZ];
+static char tx_buffer[TCP_SHELL_BUF_SZ];
 static int sock_handle = -1;
-static uint8_t mem_scratch_buf[16] = {0xDE, 0xAD, 0xBE, 0xEF,
-                                      0x00, 0x00, 0x00, 0x00,
-                                      0xFF, 0xFF, 0xFF, 0xFF,
-                                      0x01, 0x23, 0x45, 0x67};
 
 // Function Prototypes
 static uint16_t simple_crc16(uint8_t start, uint8_t *buf, uint32_t len);
@@ -350,7 +342,6 @@ static void tcp_handler_task(void *pvParameters)
     ESP_LOGI(TCP_SHELL_TASK_TAG, "Starting handler task");
     tcp_message_t *msg = (tcp_message_t *)rx_buffer;
     tcp_message_t *resp = (tcp_message_t *)tx_buffer;
-    int ret;
     while (1)
     {
         // Process messages from queue
@@ -365,179 +356,9 @@ static void tcp_handler_task(void *pvParameters)
         resp->header.payload_size = 0;
         resp->header.response_expected = 0;
 
-        // TODO: Replace switch statement with array of function pointers
-        switch (msg->header.message_id)
-        {
-        case ACK:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "ACK MSG_ID");
-            resp->header.message_id = ACK;
-            break;
-        case NACK:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "NACK MSG_ID");
-            resp->header.message_id = NACK;
-            break;
-        case TEST:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "TEST MSG_ID");
-            resp->header.message_id = TEST;
-            resp->header.payload_size = sprintf((char *)resp->payload, "Test string");
-            break;
-        case ECHO:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "ECHO MSG_ID");
-            resp->header.message_id = ECHO;
-            resp->header.payload_size = sprintf((char *)resp->payload, "%s", msg->payload);
-            break;
-        case NVM_START:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "NVM_START MSG_ID");
-            nvm_start_message_t *nvm_start_msg = (nvm_start_message_t *)msg->payload;
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "payload_size: %u, path_len: %u, file_path: %s",
-                     nvm_start_msg->payload_size, nvm_start_msg->path_len, nvm_start_msg->file_path);
-
-            ret = load_nvm_start(nvm_start_msg->file_path, nvm_start_msg->path_len, nvm_start_msg->payload_size);
-            resp->header.message_id = (ret == 0) ? ACK : NACK;
-            break;
-        case NVM_SEND_DATA:
-            ret = load_nvm_chunk(msg->payload, msg->header.payload_size);
-            resp->header.message_id = (ret == 0) ? ACK : NACK;
-            print_message = false;
-            break;
-        case NVM_STOP:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "NVM_STOP MSG_ID");
-
-            ret = load_nvm_end();
-            resp->header.message_id = (ret == 0) ? ACK : NACK;
-            break;
-        case NVM_ERASE_CHIP:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "NVM_STOP MSG_ID");
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "About to format NVM, this will take a while...");
-            ret = nvm_erase_chip();
-            resp->header.message_id = (ret == 0) ? ACK : NACK;
-            break;
-        case AUDIO_LOAD_START:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "AUDIO_LOAD_START MSG_ID");
-            audio_load_start_message_t *audio_load_start_msg = (audio_load_start_message_t *)msg->payload;
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "payload_size: %u, audio_id: %u, file_name_len: %u, file_name: %s",
-                     audio_load_start_msg->payload_size, audio_load_start_msg->audio_id, audio_load_start_msg->file_name_len, audio_load_start_msg->file_name);
-
-            ret = load_audio_start(audio_load_start_msg->audio_id, audio_load_start_msg->file_name, audio_load_start_msg->file_name_len, audio_load_start_msg->payload_size);
-            resp->header.message_id = (ret == 0) ? ACK : NACK;
-            break;
-        case AUDIO_META_DATA:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "AUDIO_META_DATA MSG_ID");
-            ret = get_audio_metadata(resp->payload, &resp->header.payload_size);
-            resp->header.message_id = (ret == 0) ? AUDIO_META_DATA : NACK;
-            break;
-        case PLAY_AUDIO_ASSET:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "PLAY_AUDIO_ASSET MSG_ID");
-            play_audio_asset_message_t *play_audio_asset_msg = (play_audio_asset_message_t *)msg->payload;
-            ret = play_audio_asset(play_audio_asset_msg->audio_id, false);
-            resp->header.message_id = (ret == 0) ? ACK : NACK;
-            break;
-        case STACK_INFO:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "STACK_INFO MSG_ID");
-            resp->header.message_id = STACK_INFO;
-            int size = get_stack_info((char *)resp->payload, sizeof(tx_buffer) - sizeof(tcp_message_t));
-            if (size > 0)
-            {
-                resp->header.payload_size = (uint32_t)size;
-            }
-            else
-            {
-                resp->header.message_id = NACK;
-            }
-            break;
-        case I2C_BUS_SCAN:
-            ESP_LOGE(TCP_SHELL_TASK_TAG, "I2C_BUS_SCAN MSG_ID not currently supported");
-            resp->header.message_id = NACK;
-            break;
-        case I2C_WRITE:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "I2C_WRITE MSG_ID");
-            i2c_write_message_t *i2c_write_msg = (i2c_write_message_t *)msg->payload;
-
-            ret = i2c_master_write_to_device(i2c_write_msg->bus,
-                                             i2c_write_msg->dev_addr,
-                                             i2c_write_msg->wbuf,
-                                             i2c_write_msg->len,
-                                             MS_TO_TICKS(i2c_write_msg->timeout));
-
-            resp->header.message_id = (ret == ESP_OK) ? ACK : NACK;
-            break;
-        case I2C_WRITE_READ:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "I2C_WRITE_READ MSG_ID");
-            i2c_write_read_message_t *i2c_write_read_msg = (i2c_write_read_message_t *)msg->payload;
-            ret = i2c_master_write_read_device(i2c_write_read_msg->bus,
-                                               i2c_write_read_msg->dev_addr,
-                                               &i2c_write_read_msg->reg_addr,
-                                               1,
-                                               resp->payload,
-                                               i2c_write_read_msg->len,
-                                               MS_TO_TICKS(i2c_write_read_msg->timeout));
-            if (ret != ESP_OK)
-            {
-                resp->header.message_id = NACK;
-                break;
-            }
-            resp->header.payload_size = i2c_write_read_msg->len;
-            resp->header.message_id = I2C_WRITE_READ;
-            break;
-        case MEM_READ_SCRATCH:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "MEM_READ_SCRATCH MSG_ID");
-            mem_scratch_read_resp_t *mem_scratch_resp = (mem_scratch_read_resp_t *)resp->payload;
-            mem_scratch_resp->addr = (uint32_t)(&mem_scratch_buf);
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "Scratch Mem Addr: 0x%x", mem_scratch_resp->addr);
-            for (size_t i = 0; i < sizeof(mem_scratch_buf); i++)
-            {
-                ESP_LOGI(TCP_SHELL_TASK_TAG, "buf[%d] = 0x%x", i, mem_scratch_buf[i]);
-            }
-
-            memcpy(mem_scratch_resp->data, mem_scratch_buf, sizeof(mem_scratch_buf));
-
-            resp->header.payload_size = sizeof(mem_scratch_read_resp_t) + sizeof(mem_scratch_buf);
-            resp->header.message_id = MEM_READ_SCRATCH;
-            break;
-        case MEM_READ:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "MEM_READ MSG_ID");
-            mem_read_message_t *mem_read_msg = (mem_read_message_t *)msg->payload;
-            mem_read_resp_t *mem_read_resp = (mem_read_resp_t *)resp->payload;
-            mem_read_resp->val = *(uint32_t *)mem_read_msg->addr;
-            resp->header.payload_size = sizeof(mem_read_resp_t);
-            resp->header.message_id = MEM_READ;
-            break;
-        case MEM_WRITE:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "MEM_WRITE MSG_ID");
-            mem_write_message_t *mem_write_msg = (mem_write_message_t *)msg->payload;
-            uint32_t *waddr = (uint32_t *)mem_write_msg->addr;
-            *waddr = mem_write_msg->val;
-            resp->header.message_id = ACK;
-            break;
-        case GPIO_GET_CONFIG:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "GPIO_GET_CONFIG MSG_ID");
-            break;
-        case GPIO_SET_CONFIG:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "GPIO_SET_CONFIG MSG_ID");
-            // gpio_config_t cfg = {};
-            // gpio_config(&cfg);
-            break;
-        case GPIO_READ:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "GPIO_READ MSG_ID");
-            // gpio_get_level(gpio_num);
-            break;
-        case GPIO_WRITE:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "GPIO_WRITE MSG_ID");
-            // gpio_set_level(gpio_num);
-            break;
-        case ADC_READ:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "ADC_READ MSG_ID");
-            break;
-        case BATT_GET_SOC:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "BATT_GET_SOC MSG_ID");
-            // max17048_get_soc(uint8_t * soc);
-            break;
-        case BATT_GET_VOLTAGE:
-            ESP_LOGI(TCP_SHELL_TASK_TAG, "BATT_GET_VOLTAGE MSG_ID");
-            // max17048_get_voltage(float *voltage);
-            break;
-        default:
-            break;
+        if (handle_shell_message(msg->header.message_id, msg, resp, &print_message) < 0) {
+            ESP_LOGI(TCP_SHELL_TASK_TAG, "Failed to process message: %d", msg->header.message_id);
+            continue;
         }
 
         if (print_message)

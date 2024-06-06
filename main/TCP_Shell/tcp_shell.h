@@ -4,6 +4,8 @@
 #include "freertos/task.h"
 #include "sdkconfig.h"
 
+#define TCP_SHELL_BUF_SZ 2048
+
 #ifdef CONFIG_WIFI_ENABLED
 int init_tcp_shell_task();
 int stop_tcp_shell_task();

@@ -30,7 +30,8 @@ set(srcs "Events.c"
 set(audio_srcs "bluetooth_audio/bt_app_av.c"
                "bluetooth_audio/bt_app_core.c"
                "bluetooth_audio/bt_audio.c")
-set(wifi_srcs "TCP_Shell/tcp_shell.c")
+set(wifi_srcs "TCP_Shell/tcp_shell.c"
+              "TCP_Shell/message_handlers/message_handlers.c")
 
 if (CONFIG_AUDIO_ENABLED)
         message(STATUS CONFIG_AUDIO_ENABLED: ${CONFIG_AUDIO_ENABLED})
