@@ -118,6 +118,46 @@ class TCPShell(cmd.Cmd):
         except Exception as e:
             print(f"Error: {e} - ({type(e).__name__})")
 
+    def do_mem_read_scratch(self, arg):
+        'Returns address and contents of scratch memory: mem_read_scratch'
+        try:
+            address, data = socket_test.mem_read_scratch(self.tcp_socket)
+            print(f"Address: {hex(address)}, data_len: {len(data)}, data: {data}")
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_mem_read(self, arg):
+        'mem_read <address>'
+        arg_list = arg.split()
+        if (len(arg_list) != 1):
+            print("Error: Invalid input, needs 1 arguments")
+            return
+        address = int(arg_list[0], 0)
+        print(f"Address: {hex(address)}")
+
+        try:
+            val = socket_test.mem_read(self.tcp_socket, address)
+            print(f"mem[{hex(address)}] = {val}")
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_mem_write(self, arg):
+        'mem_write <address> <val>'
+        print("mem write")
+        arg_list = arg.split()
+        if (len(arg_list) != 2):
+            print("Error: Invalid input, needs 2 arguments")
+            return
+        address = int(arg_list[0], 0)
+        val = int(arg_list[1], 0)
+        print(f"Address: {hex(address)}")
+        print(f"Val: {hex(val)}")
+
+        try:
+            socket_test.mem_write(self.tcp_socket, address, val)
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
     def do_exit(self, arg):
         'Stop recording, close the turtle window, and exit:  BYE'
         print('Exiting TCPShell...')

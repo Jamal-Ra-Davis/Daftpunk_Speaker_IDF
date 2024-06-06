@@ -27,6 +27,7 @@ typedef enum {
     ADC_READ,
     BATT_GET_SOC,
     BATT_GET_VOLTAGE,
+    NUM_MESSAGE_IDS,
 } message_id_t;
 
 typedef struct __attribute__((packed))
@@ -75,3 +76,21 @@ typedef struct __attribute__((packed))
     uint8_t reg_addr;
     uint16_t len;
 } i2c_write_read_message_t;
+typedef struct __attribute__((packed))
+{
+    uint32_t addr;
+    uint8_t data[0];
+} mem_scratch_read_resp_t;
+typedef struct __attribute__((packed))
+{
+    uint32_t addr;
+} mem_read_message_t;
+typedef struct __attribute__((packed))
+{
+    uint32_t val;
+} mem_read_resp_t;
+typedef struct __attribute__((packed))
+{
+    uint32_t addr;
+    uint32_t val;
+} mem_write_message_t;

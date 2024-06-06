@@ -48,6 +48,10 @@ static bool shell_active = false;
 static char rx_buffer[BUF_SZ];
 static char tx_buffer[BUF_SZ];
 static int sock_handle = -1;
+static uint8_t mem_scratch_buf[16] = {0xDE, 0xAD, 0xBE, 0xEF,
+                                      0x00, 0x00, 0x00, 0x00,
+                                      0xFF, 0xFF, 0xFF, 0xFF,
+                                      0x01, 0x23, 0x45, 0x67};
 
 // Function Prototypes
 static uint16_t simple_crc16(uint8_t start, uint8_t *buf, uint32_t len);
@@ -477,16 +481,33 @@ static void tcp_handler_task(void *pvParameters)
             break;
         case MEM_READ_SCRATCH:
             ESP_LOGI(TCP_SHELL_TASK_TAG, "MEM_READ_SCRATCH MSG_ID");
-            // Create global scratch buffer to read from
+            mem_scratch_read_resp_t *mem_scratch_resp = (mem_scratch_read_resp_t *)resp->payload;
+            mem_scratch_resp->addr = (uint32_t)(&mem_scratch_buf);
+            ESP_LOGI(TCP_SHELL_TASK_TAG, "Scratch Mem Addr: 0x%x", mem_scratch_resp->addr);
+            for (size_t i = 0; i < sizeof(mem_scratch_buf); i++)
+            {
+                ESP_LOGI(TCP_SHELL_TASK_TAG, "buf[%d] = 0x%x", i, mem_scratch_buf[i]);
+            }
+
+            memcpy(mem_scratch_resp->data, mem_scratch_buf, sizeof(mem_scratch_buf));
+
+            resp->header.payload_size = sizeof(mem_scratch_read_resp_t) + sizeof(mem_scratch_buf);
+            resp->header.message_id = MEM_READ_SCRATCH;
             break;
         case MEM_READ:
             ESP_LOGI(TCP_SHELL_TASK_TAG, "MEM_READ MSG_ID");
-            // uint32_t val = *(uint32_t *)addr;
+            mem_read_message_t *mem_read_msg = (mem_read_message_t *)msg->payload;
+            mem_read_resp_t *mem_read_resp = (mem_read_resp_t *)resp->payload;
+            mem_read_resp->val = *(uint32_t *)mem_read_msg->addr;
+            resp->header.payload_size = sizeof(mem_read_resp_t);
+            resp->header.message_id = MEM_READ;
             break;
         case MEM_WRITE:
             ESP_LOGI(TCP_SHELL_TASK_TAG, "MEM_WRITE MSG_ID");
-            // uint32_t *waddr = (uint32_t *)addr;
-            //*waddr = val;
+            mem_write_message_t *mem_write_msg = (mem_write_message_t *)msg->payload;
+            uint32_t *waddr = (uint32_t *)mem_write_msg->addr;
+            *waddr = mem_write_msg->val;
+            resp->header.message_id = ACK;
             break;
         case GPIO_GET_CONFIG:
             ESP_LOGI(TCP_SHELL_TASK_TAG, "GPIO_GET_CONFIG MSG_ID");

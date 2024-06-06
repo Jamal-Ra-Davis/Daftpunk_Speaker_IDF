@@ -50,14 +50,15 @@ class MessageID(IntEnum):
     I2C_BUS_SCAN = 12
     I2C_WRITE = 13
     I2C_WRITE_READ = 14
-    MEM_READ = 15
-    MEM_WRITE = 16
-    GPIO_CONFIG = 17
-    GPIO_READ = 18
-    GPIO_WRITE = 19
-    ADC_READ = 20
-    BATT_GET_SOC = 21
-    BATT_GET_VOLTAGE = 22
+    MEM_READ_SCRATCH = 15
+    MEM_READ = 16
+    MEM_WRITE = 17
+    GPIO_CONFIG = 18
+    GPIO_READ = 19
+    GPIO_WRITE = 29
+    ADC_READ = 21
+    BATT_GET_SOC = 22
+    BATT_GET_VOLTAGE = 23
 
 def string_to_bytearray(byte_list):
     out = bytearray()
@@ -209,21 +210,6 @@ def send_audio_data(sock, audio_id, filename_dev, payload):
 
 def get_audio_metadata(sock):
     resp = send_message(sock, MessageID.AUDIO_META_DATA, None, True)
-    if (resp):
-        print(resp)
-    if (resp.message_id != MessageID.AUDIO_META_DATA):
-        raise Exception("Invalid response")
-    metadata_list = []
-    for i in range(8):
-        size = 33
-        raw_data = resp.payload[i*size : (i+1)*size]
-        active, filename = struct.unpack('<?32s', raw_data)
-        filename = filename.decode().split('\0')[0]
-        if (active):
-            metadata_list.append(filename)
-        else:
-            metadata_list.append(None)    
-    return metadata_list
 
 def play_audio_asset(sock, audio_id):
     if (isinstance(audio_id, int) == False):
@@ -295,14 +281,54 @@ def i2c_write_read(sock, dev_addr, reg_addr, length, timeout=500):
     
     message_payload = struct.pack("<BBHBH", bus, dev_addr, timeout, reg_addr, length)
     resp = send_message(sock, MessageID.I2C_WRITE_READ, message_payload, True)
+    if (resp):
+        print(resp)
 
     if (resp.message_id != MessageID.I2C_WRITE_READ):
         raise Exception("Invalid response")
 
+    return resp.payload
+
+def mem_read_scratch(sock):
+    resp = send_message(sock, MessageID.MEM_READ_SCRATCH, None, True)
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.MEM_READ_SCRATCH):
+        raise Exception("Invalid response")
+
+    address = struct.unpack("<I", resp.payload[:4])[0]
+    payload = resp.payload[4:]
+    return address, payload
+
+def mem_read(sock, addr):
+    if (isinstance(addr, int) == False):
+        raise Exception(f"addr ({addr}), must be an integer")
+    
+    message_payload = struct.pack("<I", addr)
+    resp = send_message(sock, MessageID.MEM_READ, message_payload, True)
+
     if (resp):
         print(resp)
 
+    if (resp.message_id != MessageID.MEM_READ):
+        raise Exception("Invalid response")
+
     return resp.payload
+
+def mem_write(sock, addr, val):
+    print(val)
+    if (isinstance(addr, int) == False):
+        raise Exception(f"addr ({addr}), must be an integer")
+    if (isinstance(addr, int) == False):
+        raise Exception(f"val ({val}), must be an integer")
+
+    message_payload = struct.pack("<II", addr, val)
+    resp = send_message(sock, MessageID.MEM_WRITE, message_payload, True)
+
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.ACK):
+        raise Exception("Device did not ACK back")
 
 if __name__ == '__main__':
     HOST = "192.168.0.226"
