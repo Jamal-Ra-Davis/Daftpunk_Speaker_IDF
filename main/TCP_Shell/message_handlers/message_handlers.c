@@ -1,7 +1,7 @@
 #include "tcp_shell.h"
-#include "freertos/semphr.h"
 #include "global_defines.h"
 #include "message_ids.h"
+#include "message_structs.h"
 
 #include <string.h>
 #include "esp_log.h"
@@ -10,9 +10,9 @@
 #include "flash_manager.h"
 #include "audio_manager.h"
 #include "Stack_Info.h"
-#include "Events.h"
 
 #include "driver/i2c.h"
+#include "driver/gpio.h"
 #include "message_handlers.h"
 
 #define TAG "TCP_Msg_Handler"
@@ -38,7 +38,6 @@ static int mem_read_scratch_handler(tcp_message_t *msg, tcp_message_t *resp, boo
 static int mem_read_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
 static int mem_write_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
 
-static int gpio_get_config_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
 static int gpio_set_config_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
 static int gpio_read_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
 static int gpio_write_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
@@ -65,6 +64,9 @@ tcp_shell_handler_t handler_list[NUM_MESSAGE_IDS] = {
     mem_read_scratch_handler, // Mem
     mem_read_handler,
     mem_write_handler,
+    gpio_set_config_handler, // GPIO
+    gpio_read_handler,
+    gpio_write_handler,
 };
 
 static uint8_t mem_scratch_buf[16] = {0xDE, 0xAD, 0xBE, 0xEF,
@@ -269,28 +271,38 @@ static int mem_write_handler(tcp_message_t *msg, tcp_message_t *resp, bool *prin
     resp->header.message_id = ACK;
     return 0;
 }
-static int gpio_get_config_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)
-{
-    ESP_LOGI(TAG, "GPIO_GET_CONFIG MSG_ID");
-    return 0;
-}
 static int gpio_set_config_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)
 {
     ESP_LOGI(TAG, "GPIO_SET_CONFIG MSG_ID");
-    // gpio_config_t cfg = {};
-    // gpio_config(&cfg);
+    gpio_set_config_message_t *set_config_msg = (gpio_set_config_message_t *)msg->payload;
+
+    gpio_config_t cfg = {
+        .pin_bit_mask = BIT(set_config_msg->pin_num),
+        .mode = (gpio_mode_t)set_config_msg->pin_mode,
+        .pull_up_en = (set_config_msg->pin_strap == PIN_STRAP_PULLUP) ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE,
+        .pull_down_en = (set_config_msg->pin_strap == PIN_STRAP_PULLDOWN) ? GPIO_PULLDOWN_ENABLE : GPIO_PULLDOWN_DISABLE,
+        .intr_type = (gpio_int_type_t)set_config_msg->pin_int_type,
+    };
+    int ret = gpio_config(&cfg);
+    resp->header.message_id = (ret == ESP_OK) ? ACK : NACK;
     return 0;
 }
 static int gpio_read_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)
 {
     ESP_LOGI(TAG, "GPIO_READ MSG_ID");
-    // gpio_get_level(gpio_num);
+    gpio_read_message_t *gpio_read_msg = (gpio_read_message_t *)msg->payload;
+    gpio_read_resp_t *gpio_read_resp = (gpio_read_resp_t *)resp->payload;
+    gpio_read_resp->val = gpio_get_level(gpio_read_msg->pin_num);
+    resp->header.payload_size = sizeof(gpio_read_resp_t);
+    resp->header.message_id = GPIO_READ;
     return 0;
 }
 static int gpio_write_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)
 {
     ESP_LOGI(TAG, "GPIO_WRITE MSG_ID");
-    // gpio_set_level(gpio_num);
+    gpio_write_message_t *gpio_write_msg = (gpio_write_message_t *)msg->payload;
+    int ret = gpio_set_level(gpio_write_msg->pin_num, gpio_write_msg->val);
+    resp->header.message_id = (ret == ESP_OK) ? ACK : NACK;
     return 0;
 }
 static int adc_read_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)

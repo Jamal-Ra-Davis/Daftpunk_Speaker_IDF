@@ -143,7 +143,6 @@ class TCPShell(cmd.Cmd):
 
     def do_mem_write(self, arg):
         'mem_write <address> <val>'
-        print("mem write")
         arg_list = arg.split()
         if (len(arg_list) != 2):
             print("Error: Invalid input, needs 2 arguments")
@@ -155,6 +154,55 @@ class TCPShell(cmd.Cmd):
 
         try:
             socket_test.mem_write(self.tcp_socket, address, val)
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_gpio_set_config(self, arg):
+        'gpio_set_config <pin_num> <pin_mode> <pin_strap>'
+        arg_list = arg.split()
+        if (len(arg_list) != 3):
+            print("Error: Invalid input, needs 3 arguments")
+            return
+        pin_num = int(arg_list[0], 0)
+        pin_mode = int(arg_list[1], 0)
+        pin_strap = int(arg_list[2], 0)
+        print(f"Pin Num: {pin_num}")
+        print(f"Pin Mode: {pin_mode}")
+        print(f"Pin Strap: {pin_strap}")
+
+        try:
+            socket_test.gpio_set_config(self.tcp_socket, pin_num, pin_mode, pin_strap)
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_gpio_read(self, arg):
+        'gpio_read <pin_num>'
+        arg_list = arg.split()
+        if (len(arg_list) != 1):
+            print("Error: Invalid input, needs 1 arguments")
+            return
+        pin_num = int(arg_list[0], 0)
+        print(f"Pin Num: {pin_num}")
+
+        try:
+            val = socket_test.gpio_read(self.tcp_socket, pin_num)
+            print(f"GPIO_{pin_num} = {val}")
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_gpio_write(self, arg):
+        'gpio_write <pin_num> <val>'
+        arg_list = arg.split()
+        if (len(arg_list) != 2):
+            print("Error: Invalid input, needs 2 arguments")
+            return
+        pin_num = int(arg_list[0], 0)
+        val = int(arg_list[1], 0)
+        print(f"Pin Num: {pin_num}")
+        print(f"Val: {val}")
+
+        try:
+            socket_test.gpio_write(self.tcp_socket, pin_num, val)
         except Exception as e:
             print(f"Error: {e} - ({type(e).__name__})")
 

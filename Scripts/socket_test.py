@@ -53,12 +53,25 @@ class MessageID(IntEnum):
     MEM_READ_SCRATCH = 15
     MEM_READ = 16
     MEM_WRITE = 17
-    GPIO_CONFIG = 18
+    GPIO_SET_CONFIG = 18
     GPIO_READ = 19
-    GPIO_WRITE = 29
+    GPIO_WRITE = 20
     ADC_READ = 21
     BATT_GET_SOC = 22
     BATT_GET_VOLTAGE = 23
+
+class PinMode(IntEnum):
+    GPIO_MODE_DISABLE = 0
+    GPIO_MODE_INPUT = 1
+    GPIO_MODE_OUTPUT = 2
+    GPIO_MODE_OUTPUT_OD = 6
+    GPIO_MODE_INPUT_OUTPUT_OD = 7
+    GPIO_MODE_INPUT_OUTPUT = 3
+
+class PinStrap(IntEnum):
+    PIN_STRAP_DISABLE = 0
+    PIN_STRAP_PULLUP = 1
+    PIN_STRAP_PULLDOWN = 2
 
 def string_to_bytearray(byte_list):
     out = bytearray()
@@ -166,26 +179,6 @@ def send_nvm_data(sock, file_path, payload):
     print(f"Transferring {len(payload)} bytes from {file_path} to device")
     
     send_nvm_data_loop(sock, payload)
-    '''
-    # Loop and send data
-    bytes_remaining = len(payload)
-    chunks = bytes_remaining // PACKET_SIZE
-    if (bytes_remaining % PACKET_SIZE > 0):
-        chunks += 1
-
-    with alive_progress.alive_bar(chunks) as bar:
-        while (bytes_remaining > 0):
-            start = len(payload) - bytes_remaining
-            if (start + PACKET_SIZE < len(payload)):
-                end = start + PACKET_SIZE
-            else:
-                end = start + bytes_remaining
-            bytes_remaining -= (end - start)
-
-            resp = send_message(sock, MessageID.NVM_SEND_DATA, payload[start:end], True)
-            #percent_complete = 100*(len(payload) - bytes_remaining) / len(payload)
-            bar()
-    '''
         
 def send_audio_data(sock, audio_id, filename_dev, payload):
     if (isinstance(audio_id, int) == False):
@@ -316,7 +309,6 @@ def mem_read(sock, addr):
     return resp.payload
 
 def mem_write(sock, addr, val):
-    print(val)
     if (isinstance(addr, int) == False):
         raise Exception(f"addr ({addr}), must be an integer")
     if (isinstance(addr, int) == False):
@@ -324,6 +316,52 @@ def mem_write(sock, addr, val):
 
     message_payload = struct.pack("<II", addr, val)
     resp = send_message(sock, MessageID.MEM_WRITE, message_payload, True)
+
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.ACK):
+        raise Exception("Device did not ACK back")
+    
+def gpio_set_config(sock, pin_num, pin_mode, pin_strap, pin_int_type=0):
+    if (isinstance(pin_num, int) == False):
+        raise Exception(f"pin_num ({pin_num}), must be an integer")
+    if (isinstance(pin_mode, int) == False):
+        raise Exception(f"pin_mode ({pin_mode}), must be an integer")
+    if (isinstance(pin_strap, int) == False):
+        raise Exception(f"pin_strap ({pin_strap}), must be an integer")
+    if (isinstance(pin_int_type, int) == False):
+        raise Exception(f"pin_int_type ({pin_int_type}), must be an integer")
+
+    message_payload = struct.pack("<BBBB", pin_num, pin_mode, pin_strap, pin_int_type)
+    resp = send_message(sock, MessageID.GPIO_SET_CONFIG, message_payload, True)
+
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.ACK):
+        raise Exception("Device did not ACK back")
+
+def gpio_read(sock, pin_num):
+    if (isinstance(pin_num, int) == False):
+        raise Exception(f"pin_num ({pin_num}), must be an integer")
+    message_payload = struct.pack("<B", pin_num)
+    resp = send_message(sock, MessageID.GPIO_READ, message_payload, True)
+
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.GPIO_READ):
+        raise Exception("Device did not ACK back")
+    
+    val = struct.unpack("<B", resp.payload)[0]
+    return val
+
+def gpio_write(sock, pin_num, val):
+    if (isinstance(pin_num, int) == False):
+        raise Exception(f"pin_num ({pin_num}), must be an integer")
+    if (isinstance(val, int) == False):
+        raise Exception(f"val ({val}), must be an integer")
+
+    message_payload = struct.pack("<BB", pin_num, val)
+    resp = send_message(sock, MessageID.GPIO_WRITE, message_payload, True)
 
     if (resp):
         print(resp)
