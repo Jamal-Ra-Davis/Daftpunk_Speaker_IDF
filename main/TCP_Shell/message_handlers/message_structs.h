@@ -87,3 +87,11 @@ typedef struct __attribute__((packed))
 {
     uint32_t voltage_mv;
 } adc_read_resp_t;
+typedef struct __attribute__((packed))
+{
+    uint8_t soc;
+} battery_get_soc_resp_t;
+typedef struct __attribute__((packed))
+{
+    uint32_t voltage_mv;
+} battery_get_voltage_resp_t;

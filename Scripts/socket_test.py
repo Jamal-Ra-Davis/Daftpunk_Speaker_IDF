@@ -382,6 +382,28 @@ def adc_read(sock, pin_num):
     voltage = struct.unpack("<I", resp.payload)[0]
     return voltage
 
+def battery_get_soc(sock):
+    resp = send_message(sock, MessageID.BATT_GET_SOC, None, True)
+
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.BATT_GET_SOC):
+        raise Exception("Invalid response")
+    
+    soc = struct.unpack("<B", resp.payload)[0]
+    return soc
+
+def battery_get_voltage(sock):
+    resp = send_message(sock, MessageID.BATT_GET_VOLTAGE, None, True)
+
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.BATT_GET_VOLTAGE):
+        raise Exception("Invalid response")
+    
+    voltage = struct.unpack("<I", resp.payload)[0]
+    return voltage
+
 if __name__ == '__main__':
     HOST = "192.168.0.226"
     PORT = 3333

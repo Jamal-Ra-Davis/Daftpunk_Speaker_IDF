@@ -221,6 +221,23 @@ class TCPShell(cmd.Cmd):
         except Exception as e:
             print(f"Error: {e} - ({type(e).__name__})")
 
+    def do_battery_get_soc(self, arg):
+        'battery_get_soc'
+        try:
+            soc = socket_test.battery_get_soc(self.tcp_socket)
+            print(f"Battery Voltage = {soc}%")
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_battery_get_voltage(self, arg):
+        'battery_get_voltage'
+        try:
+            voltage = socket_test.battery_get_voltage(self.tcp_socket)
+            print(f"Battery Voltage = {voltage}mV")
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+            
+
     def do_exit(self, arg):
         'Stop recording, close the turtle window, and exit:  BYE'
         print('Exiting TCPShell...')

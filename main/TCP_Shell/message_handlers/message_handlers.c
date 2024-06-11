@@ -14,6 +14,7 @@
 #include "driver/i2c.h"
 #include "driver/gpio.h"
 #include "driver/adc.h"
+#include "MAX17048.h"
 #include "message_handlers.h"
 
 #define TAG "TCP_Msg_Handler"
@@ -69,6 +70,8 @@ tcp_shell_handler_t handler_list[NUM_MESSAGE_IDS] = {
     gpio_read_handler,
     gpio_write_handler,
     adc_read_handler,
+    battery_get_soc_handler, // Battery 
+    battery_get_voltage_handler,
 };
 
 static uint8_t mem_scratch_buf[16] = {0xDE, 0xAD, 0xBE, 0xEF,
@@ -343,7 +346,6 @@ static int adc_read_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print
     int channel;
     int ret;
     int reading;
-    uint32_t voltage;
 
     ret = get_adc_mapping(adc_read_msg->pin_num, &adc1, &channel);
     if (ret < 0)
@@ -394,12 +396,32 @@ cleanup:
 static int battery_get_soc_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)
 {
     ESP_LOGI(TAG, "BATT_GET_SOC MSG_ID");
-    // max17048_get_soc(uint8_t * soc);
+    battery_get_soc_resp_t *battery_resp = (battery_get_soc_resp_t *)resp->payload;
+    int ret = max17048_get_soc(&battery_resp->soc);
+    if (ret != ESP_OK)
+    {
+        resp->header.message_id = NACK;
+        return 0;
+    }
+    ESP_LOGI(TAG, "Battery SOC = %d", (int)battery_resp->soc);
+    resp->header.payload_size = sizeof(battery_get_soc_resp_t);
+    resp->header.message_id = BATT_GET_SOC;
     return 0;
 }
 static int battery_get_voltage_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)
 {
     ESP_LOGI(TAG, "BATT_GET_VOLTAGE MSG_ID");
-    // max17048_get_voltage(float *voltage);
+    battery_get_voltage_resp_t *battery_resp = (battery_get_voltage_resp_t *)resp->payload;
+    float voltage;
+    int ret = max17048_get_voltage(&voltage);
+    if (ret != ESP_OK)
+    {
+        resp->header.message_id = NACK;
+        return 0;
+    }
+    battery_resp->voltage_mv = (uint32_t)(voltage * 1000);
+    ESP_LOGI(TAG, "Battery Voltage = %dmV", (int)battery_resp->voltage_mv);
+    resp->header.payload_size = sizeof(battery_get_voltage_resp_t);
+    resp->header.message_id = BATT_GET_VOLTAGE;
     return 0;
 }
