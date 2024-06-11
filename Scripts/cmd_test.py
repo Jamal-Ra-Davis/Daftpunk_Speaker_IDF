@@ -206,6 +206,21 @@ class TCPShell(cmd.Cmd):
         except Exception as e:
             print(f"Error: {e} - ({type(e).__name__})")
 
+    def do_adc_read(self, arg):
+        'adc_read <pin_num>'
+        arg_list = arg.split()
+        if (len(arg_list) != 1):
+            print("Error: Invalid input, needs 1 arguments")
+            return
+        pin_num = int(arg_list[0], 0)
+        print(f"Pin Num: {pin_num}")
+
+        try:
+            voltage = socket_test.adc_read(self.tcp_socket, pin_num)
+            print(f"GPIO_{pin_num} = {voltage}mV")
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
     def do_exit(self, arg):
         'Stop recording, close the turtle window, and exit:  BYE'
         print('Exiting TCPShell...')

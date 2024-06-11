@@ -349,7 +349,7 @@ def gpio_read(sock, pin_num):
     if (resp):
         print(resp)
     if (resp.message_id != MessageID.GPIO_READ):
-        raise Exception("Device did not ACK back")
+        raise Exception("Invalid response")
     
     val = struct.unpack("<B", resp.payload)[0]
     return val
@@ -367,6 +367,20 @@ def gpio_write(sock, pin_num, val):
         print(resp)
     if (resp.message_id != MessageID.ACK):
         raise Exception("Device did not ACK back")
+
+def adc_read(sock, pin_num):
+    if (isinstance(pin_num, int) == False):
+        raise Exception(f"pin_num ({pin_num}), must be an integer")
+    message_payload = struct.pack("<B", pin_num)
+    resp = send_message(sock, MessageID.ADC_READ, message_payload, True)
+
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.ADC_READ):
+        raise Exception("Invalid response")
+    
+    voltage = struct.unpack("<I", resp.payload)[0]
+    return voltage
 
 if __name__ == '__main__':
     HOST = "192.168.0.226"

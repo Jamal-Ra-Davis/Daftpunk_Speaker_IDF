@@ -13,6 +13,7 @@
 
 #include "driver/i2c.h"
 #include "driver/gpio.h"
+#include "driver/adc.h"
 #include "message_handlers.h"
 
 #define TAG "TCP_Msg_Handler"
@@ -67,6 +68,7 @@ tcp_shell_handler_t handler_list[NUM_MESSAGE_IDS] = {
     gpio_set_config_handler, // GPIO
     gpio_read_handler,
     gpio_write_handler,
+    adc_read_handler,
 };
 
 static uint8_t mem_scratch_buf[16] = {0xDE, 0xAD, 0xBE, 0xEF,
@@ -305,9 +307,88 @@ static int gpio_write_handler(tcp_message_t *msg, tcp_message_t *resp, bool *pri
     resp->header.message_id = (ret == ESP_OK) ? ACK : NACK;
     return 0;
 }
+static int get_adc_mapping(int pin_num, bool *adc1, int *adc_channel)
+{
+    static const uint8_t adc1_gpios[] = {36, 37, 38, 39, 32, 33, 34, 35};
+    static const uint8_t adc2_gpios[] = {4, 0, 2, 15, 13, 12, 14, 27, 25, 26};
+
+    for (int i = 0; i < sizeof(adc1_gpios); i++)
+    {
+        if (pin_num == adc1_gpios[i])
+        {
+            *adc1 = true;
+            *adc_channel = i;
+            return 0;
+        }
+    }
+
+    for (int i = 0; i < sizeof(adc2_gpios); i++)
+    {
+        if (pin_num == adc2_gpios[i])
+        {
+            *adc1 = false;
+            *adc_channel = i;
+            return 0;
+        }
+    }
+
+    return -1;
+}
 static int adc_read_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)
 {
     ESP_LOGI(TAG, "ADC_READ MSG_ID");
+    adc_read_message_t *adc_read_msg = (adc_read_message_t *)msg->payload;
+    adc_read_resp_t *adc_read_resp = (adc_read_resp_t *)resp->payload;
+    bool adc1 = true;
+    int channel;
+    int ret;
+    int reading;
+    uint32_t voltage;
+
+    ret = get_adc_mapping(adc_read_msg->pin_num, &adc1, &channel);
+    if (ret < 0)
+    {
+        ESP_LOGE(TAG, "Failed to determine ADC channel for GPIO_%d", adc_read_msg->pin_num);
+        goto cleanup;
+    }
+
+    if (adc1)
+    {
+        ret = adc1_config_channel_atten(channel, ADC_ATTEN_DB_11);
+        if (ret != ESP_OK)
+        {
+            ESP_LOGE(TAG, "Failed to config ADC1 channel%d attenuation (GPIO_%d)", channel, adc_read_msg->pin_num);
+            goto cleanup;
+        }
+        reading = adc1_get_raw(channel);
+        if (reading < 0)
+        {
+            ESP_LOGE(TAG, "Failed to get reading from ADC1 channel%d (GPIO_%d)", channel, adc_read_msg->pin_num);
+            ret = ESP_FAIL;
+            goto cleanup;
+        }
+    }
+    else
+    {
+        ret = adc2_config_channel_atten(channel, ADC_ATTEN_DB_11);
+        if (ret != ESP_OK)
+        {
+            ESP_LOGE(TAG, "Failed to config ADC2 channel%d attenuation (GPIO_%d)", channel, adc_read_msg->pin_num);
+            goto cleanup;
+        }
+        ret = adc2_get_raw(channel, ADC_WIDTH_BIT_12, &reading);
+        if (ret != ESP_OK)
+        {
+            ESP_LOGE(TAG, "Failed to get reading from ADC2 channel%d (GPIO_%d)", channel, adc_read_msg->pin_num);
+            goto cleanup;
+        }
+    }
+    adc_read_resp->voltage_mv = (uint32_t)((reading * 2450) / 4095);
+    resp->header.payload_size = sizeof(adc_read_resp_t);
+    ESP_LOGI(TAG, "GPIO_%d ADC Reading = %d mV", adc_read_msg->pin_num, adc_read_resp->voltage_mv);
+
+cleanup:
+    resp->header.message_id = (ret == ESP_OK) ? ADC_READ : NACK;
     return 0;
 }
 static int battery_get_soc_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)

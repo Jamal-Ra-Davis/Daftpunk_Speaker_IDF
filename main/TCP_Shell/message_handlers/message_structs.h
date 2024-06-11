@@ -53,11 +53,16 @@ typedef struct __attribute__((packed))
     uint32_t val;
 } mem_write_message_t;
 
-typedef enum {PIN_STRAP_DISABLE, PIN_STRAP_PULLUP, PIN_STRAP_PULLDOWN};
+typedef enum
+{
+    PIN_STRAP_DISABLE,
+    PIN_STRAP_PULLUP,
+    PIN_STRAP_PULLDOWN
+} gpio_pin_strapping_t;
 typedef struct __attribute__((packed))
 {
     uint8_t pin_num;
-    uint8_t pin_mode; 
+    uint8_t pin_mode;
     uint8_t pin_strap;
     uint8_t pin_int_type; // Default to disabled in script
 } gpio_set_config_message_t;
@@ -74,3 +79,11 @@ typedef struct __attribute__((packed))
     uint8_t pin_num;
     uint8_t val;
 } gpio_write_message_t;
+typedef struct __attribute__((packed))
+{
+    uint8_t pin_num;
+} adc_read_message_t;
+typedef struct __attribute__((packed))
+{
+    uint32_t voltage_mv;
+} adc_read_resp_t;
