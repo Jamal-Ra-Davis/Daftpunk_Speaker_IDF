@@ -204,6 +204,28 @@ static int i2c_bus_scan_handler(tcp_message_t *msg, tcp_message_t *resp, bool *p
 {
     ESP_LOGE(TAG, "I2C_BUS_SCAN MSG_ID not currently supported");
     resp->header.message_id = NACK;
+    /*
+    uint8_t addr_list[10];
+    uint8_t addr_cnt = 0;
+    uint8_t dummy;
+    int timeout;
+    i2c_get_timeout(0, &timeout);
+    i2c_set_timeout(0, 500);
+    ESP_LOGI(MAIN_TAG, "I2C Timeout: %d", timeout);
+    ESP_LOGI(MAIN_TAG, "\nI2C Bus Scan\n-------------------------");
+    for (uint8_t addr = 0; addr<=127; addr++) {
+        esp_err_t err = i2c_master_read_from_device(0, addr,
+                                      &dummy, sizeof(dummy),
+                                      0);
+        if (err == ESP_OK) {
+            ESP_LOGI(MAIN_TAG, "0x%0X: VALID", addr);
+        }
+        else {
+            ESP_LOGI(MAIN_TAG, "0x%0X: INVALID", addr);
+        }
+    }
+    ESP_LOGI(MAIN_TAG, "I2C Bus Scan Complete");
+    */
     return 0;
 }
 static int i2c_write_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)
