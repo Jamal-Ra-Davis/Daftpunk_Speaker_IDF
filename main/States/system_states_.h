@@ -28,7 +28,8 @@ typedef enum
     NUM_SYSTEM_STATES_,
 } system_states_t;
 
-typedef struct {
+typedef struct
+{
     QueueHandle_t event_queue;
     int delay_ms;
 } state_manager_context_t;

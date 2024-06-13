@@ -76,14 +76,15 @@ system_states_t get_system_state(state_manager_t *state_manager)
 }
 int init_system_states(state_manager_t *state_manager)
 {
-    if (state_manager == NULL) {
+    if (state_manager == NULL)
+    {
         return -1;
     }
 
     sm_ctx.event_queue = get_event_queue_handle();
     sm_ctx.delay_ms = DEFAULT_STATE_DELAY_MS;
     sm_setup_state_manager(state_manager, NUM_SYSTEM_STATES_);
-    
+
     sm_register_state(state_manager, PAIRING_STATE_, pairing_state);
     sm_register_state(state_manager, PAIR_SUCCESS_STATE_, pairing_success_state);
     sm_register_state(state_manager, PAIR_FAIL_STATE_, pairing_fail_state);
@@ -93,16 +94,18 @@ int init_system_states(state_manager_t *state_manager)
     sm_register_state(state_manager, STREAMING_STATE_, streaming_state);
     sm_register_state(state_manager, SLEEP_STATE_, sleep_state);
 
-    sm_init(state_manager, PAIRING_STATE_, (void*)(&sm_ctx));
+    sm_init(state_manager, PAIRING_STATE_, (void *)(&sm_ctx));
     return 0;
 }
 int get_system_state_delay(state_manager_t *state_manager)
 {
-    if (state_manager == NULL) {
+    if (state_manager == NULL)
+    {
         return DEFAULT_STATE_DELAY_MS;
     }
-    state_manager_context_t *ctx = (state_manager_context_t*)(state_manager->ctx);
-    if (!ctx) {
+    state_manager_context_t *ctx = (state_manager_context_t *)(state_manager->ctx);
+    if (!ctx)
+    {
         return DEFAULT_STATE_DELAY_MS;
     }
     return ctx->delay_ms;

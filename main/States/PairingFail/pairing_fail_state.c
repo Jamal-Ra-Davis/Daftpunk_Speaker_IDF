@@ -41,7 +41,6 @@ static animation_frame_t arrow_frames[] = {
     },
 };
 
-
 /*******************************
  * Function Prototypes
  ******************************/
@@ -70,7 +69,8 @@ int pairing_fail_state_on_enter(state_manager_t *state_manager)
     ESP_LOGI(TAG, "pairing_fail_state_on_enter");
 
     // Disable bluetooth
-    if (bt_audio_enabled()) {
+    if (bt_audio_enabled())
+    {
         bt_audio_deinit();
     }
 
@@ -79,7 +79,7 @@ int pairing_fail_state_on_enter(state_manager_t *state_manager)
     set_rgb_led(100, 0, 0);
 
     // Start timer
-    if (xTimerStart(xTimer, 0) != pdPASS) 
+    if (xTimerStart(xTimer, 0) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to start timeout timer");
     }
@@ -93,7 +93,7 @@ int pairing_fail_state_on_exit(state_manager_t *state_manager)
     set_rgb_led(0, 0, 0);
 
     // Stop timer
-    if (xTimerStop(xTimer, 0) != pdPASS) 
+    if (xTimerStop(xTimer, 0) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to start timeout timer");
     }
@@ -103,29 +103,34 @@ int pairing_fail_state_update(state_manager_t *state_manager)
 {
     ESP_LOGD(TAG, "pairing_fail_state_update");
 
-    if (!state_manager) {
+    if (!state_manager)
+    {
         return 0;
     }
 
-    state_manager_context_t *ctx = (state_manager_context_t*)(state_manager->ctx);
-    if (!ctx) {
+    state_manager_context_t *ctx = (state_manager_context_t *)(state_manager->ctx);
+    if (!ctx)
+    {
         return 0;
     }
 
     em_system_event_t event;
     QueueHandle_t event_queue = ctx->event_queue;
-    while (xQueueReceive(event_queue, &event, 0) == pdTRUE) {
+    while (xQueueReceive(event_queue, &event, 0) == pdTRUE)
+    {
         ESP_LOGI(TAG, "Event Received: %d", (int)event);
     }
 
-    if (pairing_fail_timeout) {
+    if (pairing_fail_timeout)
+    {
         sm_change_state(state_manager, IDLE_STATE_);
         return 0;
     }
 
     buffer_clear(&display_buffer);
     animation_sequence_update(&arrow_animation);
-    for (int i=0; i<(FRAME_BUF_COLS); i+=8) {
+    for (int i = 0; i < (FRAME_BUF_COLS); i += 8)
+    {
         animation_sequence_draw(&arrow_animation, i, 0, &display_buffer);
     }
     buffer_update(&display_buffer);

@@ -22,7 +22,7 @@
 static TimerHandle_t xTimer;
 static bool idle_timeout = false;
 static int idx = 0;
-static const char* idle_str = "IDLE";
+static const char *idle_str = "IDLE";
 static int idle_str_len;
 
 /*******************************
@@ -59,15 +59,16 @@ int idle_state_on_enter(state_manager_t *state_manager)
     set_rgb_led(0, 0, 0);
 
     // Start timer
-    if (xTimerStart(xTimer, 0) != pdPASS) 
+    if (xTimerStart(xTimer, 0) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to start timeout timer");
     }
     idle_timeout = false;
 
     // Set delay for idle state
-    state_manager_context_t *ctx = (state_manager_context_t*)(state_manager->ctx);
-    if (!ctx) {
+    state_manager_context_t *ctx = (state_manager_context_t *)(state_manager->ctx);
+    if (!ctx)
+    {
         return 0;
     }
     ctx->delay_ms = IDLE_DELAY_MS;
@@ -82,14 +83,15 @@ int idle_state_on_exit(state_manager_t *state_manager)
     buffer_update(&display_buffer);
 
     // Stop timer
-    if (xTimerStop(xTimer, 0) != pdPASS) 
+    if (xTimerStop(xTimer, 0) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to start timeout timer");
     }
 
     // Revert delay back to default value
-    state_manager_context_t *ctx = (state_manager_context_t*)(state_manager->ctx);
-    if (!ctx) {
+    state_manager_context_t *ctx = (state_manager_context_t *)(state_manager->ctx);
+    if (!ctx)
+    {
         return 0;
     }
     ctx->delay_ms = DEFAULT_STATE_DELAY_MS;
@@ -99,12 +101,14 @@ int idle_state_update(state_manager_t *state_manager)
 {
     ESP_LOGD(TAG, "idle_state_update");
 
-    if (!state_manager) {
+    if (!state_manager)
+    {
         return 0;
     }
 
-    state_manager_context_t *ctx = (state_manager_context_t*)(state_manager->ctx);
-    if (!ctx) {
+    state_manager_context_t *ctx = (state_manager_context_t *)(state_manager->ctx);
+    if (!ctx)
+    {
         return 0;
     }
 
@@ -116,64 +120,79 @@ int idle_state_update(state_manager_t *state_manager)
 
     em_system_event_t event;
     QueueHandle_t event_queue = ctx->event_queue;
-    while (xQueueReceive(event_queue, &event, 0) == pdTRUE) {
+    while (xQueueReceive(event_queue, &event, 0) == pdTRUE)
+    {
         ESP_LOGI(TAG, "Event Received: %d", (int)event);
-        if (event == PAIR_LONG_PRESS) {
+        if (event == PAIR_LONG_PRESS)
+        {
             enter_pairing = true;
             button_pressed = true;
         }
-        if (event == PAIR_SHORT_PRESS) {
+        if (event == PAIR_SHORT_PRESS)
+        {
             enter_menu = true;
             button_pressed = true;
         }
-        if (event == VOL_M_LONG_PRESS) {
+        if (event == VOL_M_LONG_PRESS)
+        {
             button_pressed = true;
         }
-        if (event == VOL_M_SHORT_PRESS) {
+        if (event == VOL_M_SHORT_PRESS)
+        {
             button_pressed = true;
         }
-        if (event == VOL_P_LONG_PRESS) {
+        if (event == VOL_P_LONG_PRESS)
+        {
             button_pressed = true;
         }
-        if (event == VOL_P_SHORT_PRESS) {
+        if (event == VOL_P_SHORT_PRESS)
+        {
             button_pressed = true;
         }
 
-        if (event == FIRST_AUDIO_PACKET) {
+        if (event == FIRST_AUDIO_PACKET)
+        {
             enter_streaming = true;
         }
     }
 
     // State changes
-    if (enter_pairing) {
+    if (enter_pairing)
+    {
         sm_change_state(state_manager, PAIRING_STATE_);
         return 0;
     }
 
-    if (enter_streaming) {
+    if (enter_streaming)
+    {
         sm_change_state(state_manager, STREAMING_STATE_);
         return 0;
     }
 
-    if (enter_menu) {
+    if (enter_menu)
+    {
         sm_change_state(state_manager, MENU_STATE_);
         return 0;
     }
 
-    if (idle_timeout && !button_pressed) {
-        if (bluetooth_connected) {
+    if (idle_timeout && !button_pressed)
+    {
+        if (bluetooth_connected)
+        {
             sm_change_state(state_manager, DISPLAY_OFF_STATE_);
         }
-        else {
+        else
+        {
             sm_change_state(state_manager, SLEEP_STATE_);
         }
         return 0;
     }
 
     // State behavior
-    if (button_pressed) {
+    if (button_pressed)
+    {
         ESP_LOGI(TAG, "Button pressed, resetting idle timer");
-        if (xTimerStart(xTimer, 0) != pdPASS) 
+        if (xTimerStart(xTimer, 0) != pdPASS)
         {
             ESP_LOGE(TAG, "Failed to start timeout timer");
         }
@@ -184,11 +203,12 @@ int idle_state_update(state_manager_t *state_manager)
         set_rgb_state(RGB_PAIRING);
     }
     */
-    
+
     buffer_clear(&display_buffer);
     draw_str(idle_str, idx, 2, &display_buffer);
     buffer_update(&display_buffer);
-    if (--idx <= -idle_str_len) {
+    if (--idx <= -idle_str_len)
+    {
         idx = FRAME_BUF_COLS;
     }
     return 0;
