@@ -3,7 +3,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-typedef enum {FFT_LINEAR, FFT_LOG, NUM_FFT_DISPLAYS} fft_display_type_t;
+typedef enum {FFT_LINEAR, FFT_LOG, FFT_LOG_MIRROR, NUM_FFT_DISPLAYS} fft_display_type_t;
 
 int init_fft_task();
 void read_data_stream(const uint8_t *data, uint32_t length);

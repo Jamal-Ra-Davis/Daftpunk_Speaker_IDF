@@ -28,6 +28,17 @@ struct fft_double_buffer
     float *fft_write;
     uint32_t widx;
 };
+typedef void (*fft_draw_func_t)(float bucket_mags[]);
+
+// Function Prototypes
+static void fft_task(void *pvParameters);
+static void process_fft();
+static void init_fft_buffer(struct fft_double_buffer *fft_buf);
+static inline void swap_fft_buffers(struct fft_double_buffer *fft_buf);
+static void idle_timer_func(TimerHandle_t xTimer);
+static inline void draw_fft_linear(float bucket_mags[]);
+static inline void draw_fft_logarithmic(float bucket_mags[]);
+static inline void draw_fft_logarithmic_mirror(float bucket_mags[]);
 
 
 // File Globals
@@ -54,6 +65,7 @@ static const uint16_t ranges[FFT_BUCKETS] = {
 static const char *FFT_DISPLAY_NAMES[NUM_FFT_DISPLAYS] = {
     "FFT_LINEAR",
     "FFT_LOG",
+    "FFT_LOG_MIRROR",
 };
 
 // static const uint16_t MAX_FREQ = 8447;
@@ -66,15 +78,13 @@ extern system_state_t current_state;
 TimerHandle_t idle_timer;
 static fft_display_type_t fft_display = FFT_LOG;
 static uint32_t log_base_value = 20000;
+static fft_draw_func_t fft_display_funcs[NUM_FFT_DISPLAYS] = {
+    draw_fft_linear,
+    draw_fft_logarithmic,
+    draw_fft_logarithmic_mirror,
+};
 
 extern state_manager_t state_manager;
-
-// Function Prototypes
-static void fft_task(void *pvParameters);
-static void process_fft();
-static void init_fft_buffer(struct fft_double_buffer *fft_buf);
-static inline void swap_fft_buffers(struct fft_double_buffer *fft_buf);
-static void idle_timer_func(TimerHandle_t xTimer);
 
 // Public Functions
 int init_fft_task()
@@ -180,6 +190,7 @@ static inline void swap_fft_buffers(struct fft_double_buffer *fft_buf)
     fft_buf->fft_write = temp;
 }
 
+
 static inline void draw_fft_linear(float bucket_mags[])
 {
     buffer_clear(&display_buffer);
@@ -192,7 +203,8 @@ static inline void draw_fft_linear(float bucket_mags[])
         int height = (int)((bucket_mags[i] / MAX_FFT_MAG) * 8);
         for (int j = 0; j < height; j++)
         {
-            buffer_set_pixel(&display_buffer, i, j);
+            //buffer_set_pixel(&display_buffer, i, j);
+            buffer_set_pixel(&display_buffer, i, (FRAME_BUF_ROWS - 1) - j);
         }
     }
     buffer_update(&display_buffer);
@@ -217,7 +229,33 @@ static inline void draw_fft_logarithmic(float bucket_mags[])
 
         for (uint8_t j = 0; j < height; j++)
         {
-            buffer_set_pixel(&display_buffer, i, j);
+            buffer_set_pixel(&display_buffer, i, (FRAME_BUF_ROWS - 1) - j);
+        }
+    }
+    buffer_update(&display_buffer);
+}
+static inline void draw_fft_logarithmic_mirror(float bucket_mags[])
+{
+    uint32_t log_min = log_base_value;
+    buffer_clear(&display_buffer);
+    for (int i = 0; i < FFT_BUCKETS; i++)
+    {
+        uint32_t mag = (uint32_t)bucket_mags[i];
+        uint8_t height = 0;
+        while (mag > log_min)
+        {
+            mag = mag >> 1;
+            height++;
+            if (height >= 8)
+            {
+                break;
+            }
+        }
+
+        for (uint8_t j = 0; j < height/2; j++)
+        {
+            buffer_set_pixel(&display_buffer, i, j+4);
+            buffer_set_pixel(&display_buffer, i,  3 - j);
         }
     }
     buffer_update(&display_buffer);
@@ -285,6 +323,7 @@ void process_fft()
         push_event(FIRST_AUDIO_PACKET, false);
     }
     else {
+        /*
         switch (fft_display)
         {
         case FFT_LINEAR:
@@ -296,6 +335,8 @@ void process_fft()
         default:
             break;
         }
+        */
+        fft_display_funcs[fft_display](bucket_mags);
     }
 
     if (xTimerStart(idle_timer, 0) != pdPASS)
