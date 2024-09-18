@@ -2,6 +2,7 @@ import cmd, sys
 import socket
 import socket_test
 import argparse
+import time
 
 class TCPShell(cmd.Cmd):
     intro = 'Welcome to the TCPShell.   Type help or ? to list commands.\n'
@@ -236,7 +237,135 @@ class TCPShell(cmd.Cmd):
             print(f"Battery Voltage = {voltage}mV")
         except Exception as e:
             print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_exp_gpio_read(self, arg):
+        'exp_gpio_read'
+        try:
+            resp = socket_test.exp_gpio_read(self.tcp_socket)
+            print(f"Resp: {resp}")
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
             
+    def do_exp_gpio_write(self, arg):
+        'exp_gpio_write <bitmask>'
+        arg_list = arg.split()
+        if (len(arg_list) != 1):
+            print("Error: Invalid input, needs 3 arguments")
+            return
+        bitmask = int(arg_list[0], 0)
+        print(f"Bitmask: {hex(bitmask)}")
+
+        try:
+            socket_test.exp_gpio_write(self.tcp_socket, bitmask)
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_exp_gpio_interrupt_sequence(self, arg):
+        'exp_gpio_interrupt_sequence'
+        dev_addr = 0x43
+        try:
+            # Perform soft reset (0x01)
+            payload = bytearray()
+            payload.append(0x01)
+            socket_test.i2c_write(self.tcp_socket, dev_addr, 0x01, payload)
+
+            # Read config register to clear interrupt reset (0x01)
+            resp = socket_test.i2c_write_read(self.tcp_socket, dev_addr, 0x01, 1)
+            print(f"Device ID: {resp}")
+
+            # Configure IO direction (0x03) 
+            payload = bytearray()
+            payload.append(0x08)
+            socket_test.i2c_write(self.tcp_socket, dev_addr, 0x03, payload)
+
+            # Configure output ports (0x05): Set the output LOW
+            payload = bytearray()
+            payload.append(0x00)
+            socket_test.i2c_write(self.tcp_socket, dev_addr, 0x05, payload)
+
+            # Set high impedance outputs (0x07)
+            payload = bytearray()
+            payload.append(0xF7)
+            socket_test.i2c_write(self.tcp_socket, dev_addr, 0x07, payload)
+
+            # Set pullup resistors (0x0B): Disable pullup/pulldowns
+            payload = bytearray()
+            payload.append(0x00)
+            socket_test.i2c_write(self.tcp_socket, dev_addr, 0x0B, payload)
+
+            # Pullup/Pulldown sel not needed
+
+            # Set default input state (0x09) (keep as 0)
+            payload = bytearray()
+            payload.append(0x08)
+            socket_test.i2c_write(self.tcp_socket, dev_addr, 0x03, payload)
+
+            # Set interrupt mask register (0x11)
+            payload = bytearray()
+            payload.append(0xEF)
+            socket_test.i2c_write(self.tcp_socket, dev_addr, 0x11, payload)
+
+            # Read interrupt status register to clear interrupt
+            resp = socket_test.i2c_write_read(self.tcp_socket, dev_addr, 0x01, 1)
+            print(f"Interrupt Status: {resp}")
+            resp = socket_test.i2c_write_read(self.tcp_socket, dev_addr, 0x01, 1)
+            print(f"Interrupt Status: {resp}")
+
+            # ----------------------------
+
+            print("Sleeping for 2 seconds")
+            time.sleep(2)
+            while True:
+                val = input("(0: to exit, 1: continue) >> ")
+                if val == '0':
+                    break
+
+                # drive pin 3 HIGH
+                print("Driving pin 3 HIGH")
+                socket_test.exp_gpio_write(self.tcp_socket, 0x08)
+                time.sleep(0.005)
+
+                # Read interrupt status, and clear
+                resp = socket_test.i2c_write_read(self.tcp_socket, dev_addr, 0x13, 1)
+                print(f"Interrupt Status: {resp}")
+
+                # Read input status
+                resp = socket_test.i2c_write_read(self.tcp_socket, dev_addr, 0x0F, 1)
+                print(f"Input Status: {resp}")
+
+                # invert default state
+                print("Setting default interrupt state HIGH")
+                payload = bytearray()
+                payload.append(0x10)
+                socket_test.i2c_write(self.tcp_socket, dev_addr, 0x09, payload)
+
+                #time.sleep(0.5)
+
+
+                # drive pin 3 LOW
+                print("Driving pin 3 LOW")
+                socket_test.exp_gpio_write(self.tcp_socket, 0x00)
+                time.sleep(0.005)
+
+                # Read interrupt status, and clear
+                resp = socket_test.i2c_write_read(self.tcp_socket, dev_addr, 0x13, 1)
+                print(f"Interrupt Status: {resp}")
+
+                # Read input status
+                resp = socket_test.i2c_write_read(self.tcp_socket, dev_addr, 0x0F, 1)
+                print(f"Input Status: {resp}")
+
+                # invert default state
+                print("Setting default interrupt state LOW")
+                payload = bytearray()
+                payload.append(0x00)
+                socket_test.i2c_write(self.tcp_socket, dev_addr, 0x09, payload)
+
+                time.sleep(0.5)
+
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
 
     def do_exit(self, arg):
         'Stop recording, close the turtle window, and exit:  BYE'

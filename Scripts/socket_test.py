@@ -404,6 +404,22 @@ def battery_get_voltage(sock):
     voltage = struct.unpack("<I", resp.payload)[0]
     return voltage
 
+def exp_gpio_set_config(sock, pin_num, pin_mode, pin_strap, pin_int_type=0):
+    dev_addr = 0x43
+
+def exp_gpio_read(sock):
+    dev_addr = 0x43
+    input_status_reg = 0x0F
+    return i2c_write_read(sock, dev_addr, input_status_reg, 1)
+
+def exp_gpio_write(sock, bitmask):
+    dev_addr = 0x43
+    output_port_reg = 0x05
+    payload = bytearray()
+    payload.append(bitmask)
+    i2c_write(sock, dev_addr, output_port_reg, payload)
+
+
 if __name__ == '__main__':
     HOST = "192.168.0.226"
     PORT = 3333
