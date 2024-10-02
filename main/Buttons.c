@@ -16,7 +16,7 @@
 // #include "Logging.h"
 
 #define VOL_TIMER_PERIOD 500
-#define SHORT_PRESS_PERIOD 250
+#define SHORT_PRESS_PERIOD 500
 #define DEBOUNCE_PERIOD 50
 
 #define VOLUME_PLUS_GPIO_SEL GPIO_SEL_32
