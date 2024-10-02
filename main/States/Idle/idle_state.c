@@ -7,6 +7,7 @@
 #include "Font.h"
 #include "global_defines.h"
 #include "bt_audio.h"
+#include "Time_Helpers.h"
 
 #define TAG "IDLE_STATE"
 #define IDLE_TIMEOUT_MS 45000
@@ -25,10 +26,13 @@ static int idx = 0;
 static const char *idle_str = "IDLE";
 static int idle_str_len;
 
+static char time_buf[64];
+static int prev_sec;
 /*******************************
  * Function Prototypes
  ******************************/
 static void idle_timeout_func(TimerHandle_t xTimer);
+//static void get_time_components(time_t *ts, int *hour, int *min, int *sec, bool *am);
 
 /*******************************
  * Private Function Definitions
@@ -51,6 +55,14 @@ int idle_state_init(state_manager_t *state_manager)
 int idle_state_on_enter(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "idle_state_on_enter");
+
+    // Get timestamp
+    time_t now;
+    time(&now);
+    int hour, min;
+    bool am;
+    get_time_components(&now, &hour, &min, &prev_sec, &am);
+    snprintf(time_buf, sizeof(time_buf), "%02d:%02d:%02d %s", hour, min, prev_sec, (am) ? "AM" : "PM");
 
     idx = FRAME_BUF_COLS;
 
@@ -204,6 +216,26 @@ int idle_state_update(state_manager_t *state_manager)
     }
     */
 
+    // Display system time
+    time_t now;
+    time(&now);
+    int hour, min, sec;
+    bool am;
+    get_time_components(&now, &hour, &min, &sec, &am);
+
+    if (sec != prev_sec) {
+        ESP_LOGI(TAG, "Time = %02d:%02d:%02d %s", hour, min, sec, (am) ? "AM" : "PM");
+        snprintf(time_buf, sizeof(time_buf), "%02d:%02d:%02d %s", hour, min, prev_sec, (am) ? "AM" : "PM");
+    }
+    prev_sec = sec;
+
+    buffer_clear(&display_buffer);
+    draw_str(time_buf, 0, 2, &display_buffer);
+    buffer_update(&display_buffer);
+    return 0;
+
+    /*
+    // Display IDLE marquee text
     buffer_clear(&display_buffer);
     draw_str(idle_str, idx, 2, &display_buffer);
     buffer_update(&display_buffer);
@@ -212,4 +244,5 @@ int idle_state_update(state_manager_t *state_manager)
         idx = FRAME_BUF_COLS;
     }
     return 0;
+    */
 }

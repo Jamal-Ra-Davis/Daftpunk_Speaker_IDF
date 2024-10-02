@@ -431,6 +431,24 @@ void app_main(void)
     strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
     ESP_LOGI(MAIN_TAG, "The current date/time in PST is: %s", strftime_buf);
 
+    // Get time
+    ESP_LOGI(MAIN_TAG, "%02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+    // Set time
+    timeinfo.tm_hour = 8;
+    timeinfo.tm_min = 45;
+    timeinfo.tm_sec = 0;
+    time_t new_time = mktime(&timeinfo);
+    struct timeval ts = {
+        .tv_sec = new_time,
+    };
+    settimeofday(&ts, NULL);
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    ESP_LOGI(MAIN_TAG, "%02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+
+
     gpio_config_t adc_gp_cfg = {
         .pin_bit_mask = GPIO_SEL_2,
         .mode = GPIO_MODE_INPUT,
