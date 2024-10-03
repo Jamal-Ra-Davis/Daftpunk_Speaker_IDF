@@ -36,6 +36,7 @@
 
 #include "driver/adc.h"
 #include "soc/adc_channel.h"
+#include "PI4IOE5V6408.h"
 
 #define MAIN_TAG "DAFTPUNK_SPEAKER"
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
@@ -263,6 +264,11 @@ esp_err_t fuel_gauge_setup()
     return esp_ret;
 }
 
+static void IRAM_ATTR PI4IOE5V6408_isr_handler(void *arg)
+{
+    ESP_LOGI(MAIN_TAG, "IO Expander Interrupt");
+}
+
 void app_main(void)
 {
     esp_err_t esp_ret;
@@ -477,6 +483,41 @@ void app_main(void)
         buffer_update(&display_buffer);
         vTaskDelay(30 / portTICK_PERIOD_MS);
     }
+
+    // Test IO Expander
+    esp_ret = PI4IOE5V6408_init(GPIO_NUM_4, PI4IOE5V6408_isr_handler, NULL);
+    ESP_ERROR_CHECK(esp_ret);
+
+    // Read Input register
+    uint8_t io_values;
+    esp_ret = PI4IOE5V6408_get_input_status(&io_values);
+    ESP_ERROR_CHECK(esp_ret);
+    if (esp_ret == ESP_OK) {
+        ESP_LOGI(MAIN_TAG, "IO Expander Values = 0x%02X", io_values);
+    }
+
+    // IO Expander GPIO Setup
+    // Call init function
+    // VBUS_DET (P6) -> Input (No Pin Strapping)
+    // 3V3 LED ENB (P5) -> Input (Pulldown) **[In Standby Mode -> Output (HIGH)]
+    // V_ID2 (P4) -> Input (No Pin Strapping)
+    // V_ID1 (P3) -> Input (No Pin Strapping)
+    // V_ID0 (P2) -> Input (No Pin Strapping)
+    // STATUS_LED_EN (P1) -> Output (HIGH) **[In Standby Mode -> Output (LOW)]
+    // AMP_SD (P0) -> Output (LOW) **[In Standby Mode -> Output (HIGH)]
+
+    // Set 3v3 LED pin to output and toggle a few times
+    PI4IOE5V6408_set_io_dir_pin(5, true);
+    PI4IOE5V6408_set_output_state_pin(5, false);
+    PI4IOE5V6408_set_output_hiz_pin(5, false);
+    for (int i=0; i<10; i++) {
+        PI4IOE5V6408_set_output_state_pin(5, true);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+
+        PI4IOE5V6408_set_output_state_pin(5, false);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+
 
     // Test state manager
     init_system_states(&state_manager);
