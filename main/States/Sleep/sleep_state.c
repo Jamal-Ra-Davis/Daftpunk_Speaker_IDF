@@ -7,6 +7,7 @@
 #include "bt_audio.h"
 #include "i2s_task.h"
 #include "audio_manager.h"
+#include "Power_Manager.h"
 
 #define TAG "DISPLAY_OFF_STATE"
 
@@ -67,14 +68,17 @@ int sleep_state_update(state_manager_t *state_manager)
     buffer_clear(&display_buffer);
     buffer_update(&display_buffer);
 
-    // Setup wake source
+    ESP_LOGI(TAG, "Triggering sleep");
+    pm_enter_sleep();
+    ESP_LOGI(TAG, "Triggering wake");
+    sm_change_state(state_manager, IDLE_STATE_);
 
-    // Enter Sleep mode
-
+    /*
     if (exit_sleep)
     {
         sm_change_state(state_manager, IDLE_STATE_);
         return 0;
     }
+    */
     return 0;
 }

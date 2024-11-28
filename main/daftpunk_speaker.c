@@ -33,6 +33,7 @@
 #include "state_manager.h"
 #include "system_states_.h"
 #include "Stack_Info.h"
+#include "Power_Manager.h"
 
 #include "driver/adc.h"
 #include "soc/adc_channel.h"
@@ -284,6 +285,14 @@ void app_main(void)
 
     pinMode(CHG_STAT_PIN, INPUT_PULLUP);
     */
+
+    // Init Power Manager
+    if (pm_init() != ESP_OK) {
+        ESP_LOGE(MAIN_TAG, "Failed to init power manager");
+        init_success = false;
+    }
+
+    // Register power manager functions
 
     // Init Display task
     if (init_display_task() < 0)
