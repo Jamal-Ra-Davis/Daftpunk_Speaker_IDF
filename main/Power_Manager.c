@@ -74,12 +74,17 @@ static esp_err_t pm_perform_sleep()
         return ESP_FAIL;
     }
     for (int i=0; i<pm_api_cnt; i++) {
-        ret = api_list[i].sleep(api_list[i].ctx);
-        if (ret != ESP_OK) {
-            success = false;
+        if (api_list[i].sleep) {
+            ret = api_list[i].sleep(api_list[i].ctx);
+            if (ret != ESP_OK) {
+                success = false;
+            }
         }
     }
     xSemaphoreGive(pm_mutex);
+
+    //TODO: Not sure if this is needed, test with and without
+    vTaskDelay(200 / portTICK_PERIOD_MS); // Wait for Vsync and bluetooth stack to settle out
 
     // Setup GPIO wake enable signal
     gpio_wakeup_enable(WAKE_GPIO, GPIO_INTR_LOW_LEVEL);
@@ -108,9 +113,11 @@ static esp_err_t pm_perform_wake()
         return ESP_FAIL;
     }
     for (int i=0; i<pm_api_cnt; i++) {
-        ret = api_list[i].wake(api_list[i].ctx);
-        if (ret != ESP_OK) {
-            success = false;
+        if (api_list[i].wake) {
+            ret = api_list[i].wake(api_list[i].ctx);
+            if (ret != ESP_OK) {
+                success = false;
+            }
         }
     }
     xSemaphoreGive(pm_mutex);
