@@ -113,7 +113,7 @@ static esp_err_t reg_get_pin_template(uint8_t reg, uint8_t pin_num, bool *pin_va
     if (ret != ESP_OK) {
         return ret;
     }
-    *pin_val = (bool)(mask & reg);
+    *pin_val = (bool)(mask & reg_val);
     return ESP_OK;
 }
 static esp_err_t reg_set_pin_template(uint8_t reg, uint8_t pin_num, bool pin_val)
