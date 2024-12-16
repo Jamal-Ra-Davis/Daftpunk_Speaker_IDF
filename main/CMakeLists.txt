@@ -26,6 +26,7 @@ set(srcs "Events.c"
          "Bitmap.c"
          "Animation.c"
          "BoardRevision.c"
+         "Power_Manager.c"
          "daftpunk_speaker.c")
 
 

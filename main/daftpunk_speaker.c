@@ -33,6 +33,7 @@
 #include "state_manager.h"
 #include "system_states_.h"
 #include "Stack_Info.h"
+#include "Power_Manager.h"
 
 #include "driver/adc.h"
 #include "soc/adc_channel.h"
@@ -54,6 +55,60 @@ system_state_t current_state = IDLE_STATE;
 system_state_t prev_state = BOOT_STATE;
 
 state_manager_t state_manager;
+
+static esp_err_t bt_sleep(void *ctx)
+{
+    bt_audio_deinit();
+    return ESP_OK;
+}
+static esp_err_t bt_wake(void *ctx)
+{
+    bt_audio_init();
+    return ESP_OK;
+}
+static esp_err_t audio_amp_sleep(void *ctx)
+{
+    //gpio_set_level(GPIO_NUM_4, 1);
+    return ESP_OK;
+}
+static esp_err_t audio_amp_wake(void *ctx)
+{
+    //gpio_set_level(GPIO_NUM_4, 0);
+    return ESP_OK;
+}
+static esp_err_t status_led_sleep(void *ctx)
+{
+    if (!ctx) {
+        return ESP_FAIL;
+    }
+    rgb_states_t *rgb_state = (rgb_states_t *)ctx;
+    *rgb_state = get_rgb_state();
+    set_rgb_state(RGB_MANUAL);
+    set_rgb_led(0, 0, 0);
+    gpio_set_level(GPIO_NUM_17, 0);
+    return ESP_OK;
+}
+static esp_err_t status_led_wake(void *ctx)
+{
+    if (!ctx) {
+        return ESP_FAIL;
+    }
+    rgb_states_t *rgb_state = (rgb_states_t *)ctx;
+    gpio_set_level(GPIO_NUM_17, 1);
+    set_rgb_state(*rgb_state);
+    return ESP_OK;
+}
+static esp_err_t display_sleep(void *ctx)
+{
+    buffer_clear(&display_buffer);
+    buffer_update(&display_buffer);
+    return ESP_OK;
+}
+static esp_err_t display_wake(void *ctx)
+{
+    return ESP_OK;
+}
+
 
 void enter_sleep()
 {
@@ -286,6 +341,43 @@ void app_main(void)
 
     pinMode(CHG_STAT_PIN, INPUT_PULLUP);
     */
+
+    // Init Power Manager
+    if (pm_init() != ESP_OK) {
+        ESP_LOGE(MAIN_TAG, "Failed to init power manager");
+        init_success = false;
+    }
+
+    // Register power manager functions
+    pm_api_t bt_pm = {
+        .sleep = bt_sleep,
+        .wake = bt_wake,
+        .ctx = NULL,
+    };
+    pm_register_handler(&bt_pm);
+
+    pm_api_t audio_amp_pm = {
+        .sleep = audio_amp_sleep,
+        .wake = audio_amp_wake,
+        .ctx = NULL,
+    };
+    pm_register_handler(&audio_amp_pm);
+
+    rgb_states_t rgb_state;
+    pm_api_t status_led_pm = {
+        .sleep = status_led_sleep,
+        .wake = status_led_wake,
+        .ctx = (void*)&rgb_state,
+    };
+    pm_register_handler(&status_led_pm);
+
+    pm_api_t display_pm = {
+        .sleep = display_sleep,
+        .wake = NULL,
+        .ctx = NULL,
+    };
+    pm_register_handler(&display_pm);
+    
 
     // Init Display task
     if (init_display_task() < 0)
