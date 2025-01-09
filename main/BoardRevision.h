@@ -17,5 +17,5 @@ esp_err_t config_io_expander();
 // TODO: Move these function to separate module
 bool vbus_is_present();
 esp_err_t power_led_enable(bool enable);
-esp_err_t amp_shutdown_enable(bool enable);
+esp_err_t amp_shutdown_assert(bool shutdown);
 esp_err_t rgb_led_enable(bool enable);

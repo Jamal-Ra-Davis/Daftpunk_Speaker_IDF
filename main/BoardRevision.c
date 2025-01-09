@@ -72,7 +72,7 @@ esp_err_t config_io_expander()
     board_rev_t board_revision;
     esp_err_t esp_ret = ESP_OK;
     esp_ret = PI4IOE5V6408_init(GPIO_NUM_4, PI4IOE5V6408_isr_handler, NULL);
-    ESP_ERROR_CHECK(esp_ret);
+    //ESP_ERROR_CHECK(esp_ret);
 
     // If init fails, assume that board is board revision is V0 and IO expander is not present
     if (esp_ret != ESP_OK)
@@ -197,13 +197,16 @@ esp_err_t power_led_enable(bool enable)
     }
     else
     {
-        return PI4IOE5V6408_set_output_state_pin(LED_3V3_ENB_PIN, enable);
+        // If additional power savings are needed, may need to look at pullup/pulldown settings
+
+        // Power LED enable signal is active LOW, while function wording is active HIGH
+        return PI4IOE5V6408_set_output_state_pin(LED_3V3_ENB_PIN, !enable);
     }
     return ESP_OK;
 }
 
 // AMP SD control
-esp_err_t amp_shutdown_enable(bool enable)
+esp_err_t amp_shutdown_assert(bool shutdown)
 {
     board_rev_t board_rev = get_board_revision();
     if (board_rev == BOARD_REV_INVALID)
@@ -212,11 +215,13 @@ esp_err_t amp_shutdown_enable(bool enable)
     }
     else if (board_rev == BOARD_REV_V0)
     {
-        return gpio_set_level(AMP_SD_PIN_V0, (uint32_t)enable);
+        return gpio_set_level(AMP_SD_PIN_V0, (uint32_t)shutdown);
     }
     else
     {
-        return PI4IOE5V6408_set_output_state_pin(AMP_SD_PIN_V2, enable);
+        // If additional power savings are needed, may need to look at pullup/pulldown settings
+            
+        return PI4IOE5V6408_set_output_state_pin(AMP_SD_PIN_V2, shutdown);
     }
     return ESP_OK;
 }
