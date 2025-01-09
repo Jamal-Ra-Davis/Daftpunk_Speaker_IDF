@@ -34,7 +34,10 @@ esp_err_t pm_register_handler(pm_api_t *api)
     }
 
     api_list[pm_api_cnt] = *api;
+    pm_api_cnt++;
     xSemaphoreGive(pm_mutex);
+
+    ESP_LOGD(PM_TAG, "%d power management functions have been registered", pm_api_cnt);
     return ESP_OK;
 }
 esp_err_t pm_enter_sleep()
