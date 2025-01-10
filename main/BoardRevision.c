@@ -56,6 +56,20 @@ board_rev_t get_board_revision()
     revision = (board_rev_t)board_id;
     return revision;
 }
+const char *get_board_revision_string(board_rev_t board_rev)
+{
+    switch (board_rev) {
+        case BOARD_REV_V0:
+            return "BOARD_REV_V0/1";
+        case BOARD_REV_V2:
+            return "BOARD_REV_V2";
+        case BOARD_REV_V3:
+            return "BOARD_REV_V3";
+        case BOARD_REV_INVALID:
+            return "INVALID BOARD REV";
+    }
+    return "UNUSED BOARD REV";
+}
 
 esp_err_t config_io_expander()
 {

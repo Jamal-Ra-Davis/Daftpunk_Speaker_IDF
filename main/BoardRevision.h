@@ -12,6 +12,7 @@ typedef enum {
 #define BOARD_REV_V1 BOARD_REV_V0
 
 board_rev_t get_board_revision();
+const char *get_board_revision_string(board_rev_t board_rev);
 esp_err_t config_io_expander();
 
 // TODO: Move these function to separate module

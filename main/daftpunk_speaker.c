@@ -594,7 +594,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_ret);
 
     board_rev_t board_revision = get_board_revision();
-    ESP_LOGI(MAIN_TAG, "Board Revision = %d", (int)board_revision);
+    ESP_LOGI(MAIN_TAG, "Board Revision = %s", get_board_revision_string(board_revision));
 
     /*
     // Read Input register
