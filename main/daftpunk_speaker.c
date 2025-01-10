@@ -58,54 +58,64 @@ state_manager_t state_manager;
 
 static esp_err_t bt_sleep(void *ctx)
 {
-    bt_audio_deinit();
+    ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
+    if (bt_audio_enabled())
+    {
+        bt_audio_deinit();
+    }
     return ESP_OK;
 }
 static esp_err_t bt_wake(void *ctx)
 {
-    bt_audio_init();
+    ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
+    bt_i2s_task_start_up();
     return ESP_OK;
 }
 static esp_err_t audio_amp_sleep(void *ctx)
 {
-    //gpio_set_level(GPIO_NUM_4, 1);
+    ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
+    amp_shutdown_assert(true);
     return ESP_OK;
 }
 static esp_err_t audio_amp_wake(void *ctx)
 {
-    //gpio_set_level(GPIO_NUM_4, 0);
+    ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
+    amp_shutdown_assert(false);
     return ESP_OK;
 }
 static esp_err_t status_led_sleep(void *ctx)
 {
-    if (!ctx) {
-        return ESP_FAIL;
-    }
-    rgb_states_t *rgb_state = (rgb_states_t *)ctx;
-    *rgb_state = get_rgb_state();
-    set_rgb_state(RGB_MANUAL);
-    set_rgb_led(0, 0, 0);
-    gpio_set_level(GPIO_NUM_17, 0);
+    ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
+    rgb_led_enable(false);
     return ESP_OK;
 }
 static esp_err_t status_led_wake(void *ctx)
 {
-    if (!ctx) {
-        return ESP_FAIL;
-    }
-    rgb_states_t *rgb_state = (rgb_states_t *)ctx;
-    gpio_set_level(GPIO_NUM_17, 1);
-    set_rgb_state(*rgb_state);
+    ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
+    rgb_led_enable(true);
     return ESP_OK;
 }
 static esp_err_t display_sleep(void *ctx)
 {
+    ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
     buffer_clear(&display_buffer);
     buffer_update(&display_buffer);
     return ESP_OK;
 }
 static esp_err_t display_wake(void *ctx)
 {
+    return ESP_OK;
+}
+static esp_err_t power_led_sleep(void *ctx)
+{
+    ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
+    power_led_enable(false);
+    return ESP_OK;
+}
+static esp_err_t power_led_wake(void *ctx)
+{
+    ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
+    power_led_enable(true);
     return ESP_OK;
 }
 
@@ -373,10 +383,17 @@ void app_main(void)
 
     pm_api_t display_pm = {
         .sleep = display_sleep,
-        .wake = NULL,
+        .wake = display_wake,
         .ctx = NULL,
     };
     pm_register_handler(&display_pm);
+
+    pm_api_t power_led_pm = {
+        .sleep = power_led_sleep,
+        .wake = power_led_wake,
+        .ctx = NULL,
+    };
+    pm_register_handler(&power_led_pm);
     
 
     // Init Display task
