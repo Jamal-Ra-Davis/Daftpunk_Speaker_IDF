@@ -326,9 +326,26 @@ void app_main(void)
     bool init_success = true;
     int ret = 0;
 
+    // Init button manager
+    if (init_buttons() < 0)
+    {
+        ESP_LOGE(MAIN_TAG, "Failed to init button manager");
+        init_success = false;
+    }
+
     // Setup I2C (Can probably handle in driver)
     esp_ret = i2c_master_init();
     ESP_ERROR_CHECK(esp_ret);
+
+    // Init IO Expander and get board revision
+    esp_ret = config_io_expander();
+    ESP_ERROR_CHECK(esp_ret);
+
+    board_rev_t board_revision = get_board_revision();
+    ESP_LOGI(MAIN_TAG, "Board Revision = %s", get_board_revision_string(board_revision));
+    
+    // Assert power LED
+    power_led_enable(true);
 
     // Init Power Manager
     esp_ret = pm_init(WAKE_GPIO, GPIO_INTR_LOW_LEVEL, gpio_trigger_wake, NULL);
@@ -404,13 +421,6 @@ void app_main(void)
 
     ret |= register_event_callback(WIFI_CONNECTED, wifi_connected_cb, NULL);
     ret |= register_event_callback(WIFI_DISCONNECTED, wifi_disconnected_cb, NULL);
-
-    // Init button manager
-    if (init_buttons() < 0)
-    {
-        ESP_LOGE(MAIN_TAG, "Failed to init button manager");
-        init_success = false;
-    }
 
     // Init RGBW LED manager
     esp_ret = init_rgb_manager();
@@ -559,21 +569,6 @@ void app_main(void)
         draw_str(strftime_buf, i, 2, &display_buffer);
         buffer_update(&display_buffer);
         vTaskDelay(30 / portTICK_PERIOD_MS);
-    }
-
-    // Test IO Expander
-    esp_ret = config_io_expander();
-    ESP_ERROR_CHECK(esp_ret);
-
-    board_rev_t board_revision = get_board_revision();
-    ESP_LOGI(MAIN_TAG, "Board Revision = %s", get_board_revision_string(board_revision));
-    
-    for (int i=0; i<10; i++) {
-        power_led_enable(true);
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-
-        power_led_enable(false);
-        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 
     // Test state manager
