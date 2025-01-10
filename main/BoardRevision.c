@@ -72,13 +72,12 @@ esp_err_t config_io_expander()
     board_rev_t board_revision;
     esp_err_t esp_ret = ESP_OK;
     esp_ret = PI4IOE5V6408_init(GPIO_NUM_4, PI4IOE5V6408_isr_handler, NULL);
-    //ESP_ERROR_CHECK(esp_ret);
 
     // If init fails, assume that board is board revision is V0 and IO expander is not present
     if (esp_ret != ESP_OK)
     {
         get_board_revision();
-        return esp_ret;
+        return ESP_OK;
     }
 
     uint8_t vid_pins[] = {IO_EXP_VID_PIN0, IO_EXP_VID_PIN1, IO_EXP_VID_PIN2};
