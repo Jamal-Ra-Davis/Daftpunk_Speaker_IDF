@@ -171,7 +171,6 @@ void enter_sleep()
 void volume_increase_cb(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "Volume Increase Pressed:");
-    // volume_inc();
     int vol = (int)bt_audio_get_volume();
     vol += 7;
     if (vol > 127)
@@ -184,7 +183,6 @@ void volume_increase_cb(void *ctx)
 void volume_decrease_cb(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "Volume Decrease Pressed");
-    // volume_dec();
     int vol = (int)bt_audio_get_volume();
     vol -= 7;
     if (vol < 0)
@@ -197,11 +195,7 @@ void volume_decrease_cb(void *ctx)
 static void select_action(void *ctx)
 {
     static bool triple_buffering = true;
-    ESP_LOGI(MAIN_TAG, "Select button pressed - Create a2dp sink");
-    ESP_LOGI(MAIN_TAG, "Creating a2dp sink...");
-    // a2dp_sink.start("DevBoard_v0");
-    // volume_init();
-    // a2dp_sink.set_stream_reader(read_data_stream);
+    ESP_LOGI(MAIN_TAG, "Select button pressed");
     if (current_state == SLEEP_STATE)
     {
         current_state = IDLE_STATE;
@@ -216,23 +210,16 @@ static volatile bool pair_press = false;
 static void pair_action(void *ctx)
 {
     pair_press = true;
-    ESP_LOGI(MAIN_TAG, "Pair Button Pressed - Destroy a2dp sink");
-    ESP_LOGI(MAIN_TAG, "Destroying a2dp sink...");
-    // a2dp_sink.end(true);
-
-    // Test sleep logic
-    // enter_sleep();
+    ESP_LOGI(MAIN_TAG, "Pair Button Pressed");
 }
 
 static void charge_start_action(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "Charging started");
-    // oneshot_blink(10, 100, 0, 128, 32);
 }
 static void charge_stop_action(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "Charging stopped");
-    // oneshot_blink(10, 100, 128, 16, 16);
 }
 static void sleep_timer_func(TimerHandle_t xTimer)
 {
@@ -242,9 +229,6 @@ static void sleep_timer_func(TimerHandle_t xTimer)
 static void bt_connected_action(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "BT Audio Connected");
-    //set_rgb_state(RGB_MANUAL);
-    //oneshot_blink(5, 200, 100, 100, 100);
-    //set_rgb_led(60, 80, 60);
     play_audio_sfx(AUDIO_SFX_CONNECT, false);
 }
 static void bt_disconnected_action(void *ctx)
@@ -258,8 +242,6 @@ static void bt_disconnected_action(void *ctx)
 static void bt_connecting_action(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "BT Audio connecting");
-    //set_rgb_state(RGB_MANUAL);
-    //set_rgb_led(0, 100, 30);
 }
 void soc_change_cb(void *ctx)
 {
@@ -348,18 +330,6 @@ void app_main(void)
     esp_ret = i2c_master_init();
     ESP_ERROR_CHECK(esp_ret);
 
-    // Setup GPIOs
-    /*
-    pinMode(RGB_LED_EN, OUTPUT);
-    pinMode(RGB_LED_DATA, OUTPUT);
-    pinMode(AMP_SD_PIN, OUTPUT);
-
-    digitalWrite(AMP_SD_PIN, LOW);
-    digitalWrite(RGB_LED_EN, HIGH);
-
-    pinMode(CHG_STAT_PIN, INPUT_PULLUP);
-    */
-
     // Init Power Manager
     esp_ret = pm_init(WAKE_GPIO, GPIO_INTR_LOW_LEVEL, gpio_trigger_wake, NULL);
     if (esp_ret != ESP_OK) {
@@ -367,7 +337,6 @@ void app_main(void)
         init_success = false;
     }
     ESP_ERROR_CHECK(esp_ret);
-
 
     // Register power manager functions
     pm_api_t bt_pm = {
@@ -481,8 +450,6 @@ void app_main(void)
         vTaskDelay(30 / portTICK_PERIOD_MS);
     }
 
-    // Perfor I2C bus scan
-
     // Init FFT Task
     if (init_fft_task() < 0)
     {
@@ -498,10 +465,6 @@ void app_main(void)
         ESP_ERROR_CHECK(esp_ret);
         init_success = false;
     }
-
-    // Init CLI task
-
-    // Init timer thread manager and register timer threads
 
     // De-assert Audio amp shutdown signal
     gpio_config_t gp_cfg = {
@@ -569,8 +532,6 @@ void app_main(void)
     localtime_r(&now, &timeinfo);
     ESP_LOGI(MAIN_TAG, "%02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
-
-
     gpio_config_t adc_gp_cfg = {
         .pin_bit_mask = GPIO_SEL_2,
         .mode = GPIO_MODE_INPUT,
@@ -606,17 +567,6 @@ void app_main(void)
 
     board_rev_t board_revision = get_board_revision();
     ESP_LOGI(MAIN_TAG, "Board Revision = %s", get_board_revision_string(board_revision));
-
-    /*
-    // Read Input register
-    uint8_t io_values;
-    esp_ret = PI4IOE5V6408_get_input_status(&io_values);
-    ESP_ERROR_CHECK(esp_ret);
-    if (esp_ret == ESP_OK) {
-        ESP_LOGI(MAIN_TAG, "IO Expander Values = 0x%02X", io_values);
-    }
-    */
-
     
     for (int i=0; i<10; i++) {
         power_led_enable(true);
@@ -626,131 +576,10 @@ void app_main(void)
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 
-
     // Test state manager
     init_system_states(&state_manager);
     while (1) {
         sm_update(&state_manager);
         vTaskDelay(get_system_state_delay(&state_manager) / portTICK_PERIOD_MS);
-    }
-
-    int cnt = 0;
-    char idle_str[32] = {'\0'};
-    bool use_delay = true;
-    while (1)
-    {
-        bool on_enter = false;
-        if (current_state != prev_state)
-        {
-            on_enter = true;
-            prev_state = current_state;
-        }
-
-        switch (current_state)
-        {
-        case IDLE_STATE:
-        {
-            use_delay = false;
-            if (on_enter)
-            {
-                ESP_LOGI(MAIN_TAG, "Entering IDLE_STATE");
-                if (xTimerStart(sleep_timer, 0) != pdPASS)
-                {
-                    ESP_LOGE(MAIN_TAG, "Failed to start sleep timer");
-                }
-            }
-            
-
-            uint8_t soc;
-            max17048_get_soc(&soc);
-            buffer_clear(&display_buffer);
-            //snprintf(idle_str, sizeof(idle_str), "SOC:%d%%", soc);
-            //draw_str(idle_str, 0, 2, &display_buffer);
-
-            /*
-            // Arrow pattern
-            static int offset = 0;
-            uint8_t arrow_pattern[4] = {
-                0x99, 0x3C, 0x66, 0xC3
-            };
-            for (int i=0; i<FRAME_BUF_COLS; i++) {
-                for (int j=0; j<FRAME_BUF_ROWS; j++) {
-                    int idx = (i + offset) % 4;
-                    if (arrow_pattern[idx] & (1 << j)) {
-                        buffer_set_pixel(&display_buffer, i, j);
-                    }
-                }
-            }
-            offset++;
-            */
-
-            /*
-            // Random noise patten
-            for (int i=0; i<FRAME_BUF_COLS; i++) {
-                for (int j=0; j<FRAME_BUF_ROWS; j++) {
-                    if (rand() % 2 == 0) {
-                        buffer_set_pixel(&display_buffer, i, j);
-                    }
-                }
-            }
-            */
-
-            //Cylon eye
-            static bool right = true;
-            static int idx = 0;
-            for (int i=0; i<2; i++) {
-                for (int j=0; j<3; j++) {
-                    buffer_set_pixel(&display_buffer, idx+i, 2+j);
-                }
-            }
-            if (right) {
-                idx++;
-                if (idx == FRAME_BUF_COLS - 2) {
-                    right = false;
-                }
-            }
-            else {
-                idx--;
-                if (idx == 0) {
-                    right = true;
-                }
-            }
-            
-
-            buffer_update(&display_buffer);
-            vTaskDelay(20 / portTICK_PERIOD_MS);
-            break;
-        }
-        case STREAMING_STATE:
-        {
-            use_delay = true;
-            if (on_enter)
-            {
-                ESP_LOGI(MAIN_TAG, "Entering STREAMING_STATE");
-                if (xTimerStop(sleep_timer, 0) != pdPASS)
-                {
-                    ESP_LOGE(MAIN_TAG, "Failed to stop sleep timer");
-                }
-            }
-            break;
-        }
-        case SLEEP_STATE:
-        {
-            use_delay = true;
-            if (on_enter)
-            {
-                ESP_LOGI(MAIN_TAG, "Entering SLEEP_STATE");
-                buffer_clear(&display_buffer);
-                buffer_update(&display_buffer);
-            }
-            break;
-        }
-        default:
-            break;
-        }
-
-        if (use_delay) {
-            vTaskDelay(100 / portTICK_PERIOD_MS);
-        }
     }
 }

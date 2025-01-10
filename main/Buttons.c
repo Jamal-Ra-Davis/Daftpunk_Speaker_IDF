@@ -131,7 +131,6 @@ static void volume_button_handler(volume_key_t key)
     if (xTimerStart(vol_data[key].timer, 0) != pdPASS)
     {
       // Failed to start timer
-      // ESP_LOGE(BUTTON_TAG, "Failed to start timer");
     }
   }
   else
@@ -142,7 +141,6 @@ static void volume_button_handler(volume_key_t key)
     if (xTimerStop(vol_data[key].timer, 0) != pdPASS)
     {
       // Failed to stop timer
-      // ESP_LOGE(BUTTON_TAG, "Failed to stop timer");
     }
 
     // Compare release time to press time to check for short press

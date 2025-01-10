@@ -74,12 +74,6 @@ esp_err_t pm_init(gpio_num_t gpio_num, gpio_int_type_t gpio_intr_type, pm_functi
         ESP_LOGE(PM_TAG, "Failed to create power manager mutex");
         return ESP_FAIL;
     }
-    /*
-    if (!wake) {
-        ESP_LOGE(PM_TAG, "Power management module requires GPIO wake function to be registered");
-        return ESP_FAIL;
-    }
-    */
     gpio_data.gpio_num = gpio_num;
     gpio_data.gpio_intr_type = gpio_intr_type;
     gpio_data.api.wake = wake;

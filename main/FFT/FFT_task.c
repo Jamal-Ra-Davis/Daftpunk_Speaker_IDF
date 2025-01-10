@@ -68,13 +68,11 @@ static const char *FFT_DISPLAY_NAMES[NUM_FFT_DISPLAYS] = {
     "FFT_LOG_MIRROR",
 };
 
-// static const uint16_t MAX_FREQ = 8447;
 static float fft_output[FFT_N];
 static float fft_input[FFT_N];
 static struct fft_double_buffer fft_buf;
 static fft_config_t *real_fft_plan;
 static TaskHandle_t xfft_task = NULL;
-extern system_state_t current_state;
 TimerHandle_t idle_timer;
 static fft_display_type_t fft_display = FFT_LOG;
 static uint32_t log_base_value = 20000;
@@ -323,19 +321,6 @@ void process_fft()
         push_event(FIRST_AUDIO_PACKET, false);
     }
     else {
-        /*
-        switch (fft_display)
-        {
-        case FFT_LINEAR:
-            draw_fft_linear(bucket_mags);
-            break;
-        case FFT_LOG:
-            draw_fft_logarithmic(bucket_mags);
-            break;
-        default:
-            break;
-        }
-        */
         fft_display_funcs[fft_display](bucket_mags);
     }
 

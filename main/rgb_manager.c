@@ -205,43 +205,13 @@ static void rgb_led_cycle()
     vTaskDelay(pdMS_TO_TICKS(1000));
 }
 static void rgb_pairing()
-{
-    //static uint8_t brightness = 0x1;
-    //static bool increasing = true;
-
-    
+{    
     static int cnt = 0;
     float brightness = sin((2*3.14*cnt) / 64.0);
     brightness = (brightness / 2.0) + 0.5;
     brightness = (100*brightness) + 10;
     cnt = (cnt + 1) % 64;
-    
-
-    //float x = sin(3.14159 / 4.0);
-    //ESP_LOGI(RGB_TAG, "sin(pi/4) = %f", x);
-    //ESP_LOGI(RGB_TAG, "Test");
-
-    /*
-    if (brightness == 0x01)
-    {
-        increasing = true;
-    }
-    else if (brightness == 0x7F)
-    {
-        increasing = false;
-    }
-
-    if (increasing)
-    {
-        brightness = (brightness << 1) | 0x01;
-    }
-    else
-    {
-        brightness = brightness >> 1;
-    }
-    */
 
     set_rgb_led(0, (uint8_t)(brightness/2), (uint8_t)brightness);
     vTaskDelay(pdMS_TO_TICKS(30));
-    //vTaskDelay(pdMS_TO_TICKS(1000));
 }
