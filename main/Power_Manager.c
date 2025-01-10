@@ -9,12 +9,22 @@
 #define MAX_PM_APIS 16
 #define USE_DEEP_SLEEP false
 
-// Set wake GPIO to Volume Minus button
-#define WAKE_GPIO GPIO_NUM_34
+typedef struct {
+    gpio_num_t gpio_num;
+    gpio_int_type_t gpio_intr_type;
+    pm_gpio_api_t api;
+} pm_gpio_data_t;
 
 static SemaphoreHandle_t pm_mutex = NULL;
 static int pm_api_cnt = 0;
 static pm_api_t api_list[MAX_PM_APIS];
+
+static pm_gpio_data_t gpio_data = {
+    .api = {
+        .wake = NULL,
+        .ctx = NULL,
+    },
+};
 
 static esp_err_t pm_perform_sleep();
 static esp_err_t pm_perform_wake();
@@ -40,6 +50,7 @@ esp_err_t pm_register_handler(pm_api_t *api)
     ESP_LOGD(PM_TAG, "%d power management functions have been registered", pm_api_cnt);
     return ESP_OK;
 }
+
 esp_err_t pm_enter_sleep()
 {
     esp_err_t ret;
@@ -55,8 +66,7 @@ esp_err_t pm_enter_sleep()
     return ESP_OK;
 }
 
-
-esp_err_t pm_init()
+esp_err_t pm_init(gpio_num_t gpio_num, gpio_int_type_t gpio_intr_type, pm_function_t wake, void *ctx)
 {
     pm_mutex = xSemaphoreCreateMutex();
     if (pm_mutex == NULL)
@@ -64,9 +74,18 @@ esp_err_t pm_init()
         ESP_LOGE(PM_TAG, "Failed to create power manager mutex");
         return ESP_FAIL;
     }
+    /*
+    if (!wake) {
+        ESP_LOGE(PM_TAG, "Power management module requires GPIO wake function to be registered");
+        return ESP_FAIL;
+    }
+    */
+    gpio_data.gpio_num = gpio_num;
+    gpio_data.gpio_intr_type = gpio_intr_type;
+    gpio_data.api.wake = wake;
+    gpio_data.api.ctx = ctx;
     return ESP_OK;
 }
-
 
 static esp_err_t pm_perform_sleep()
 {
@@ -90,7 +109,7 @@ static esp_err_t pm_perform_sleep()
     vTaskDelay(200 / portTICK_PERIOD_MS); // Wait for Vsync and bluetooth stack to settle out
 
     // Setup GPIO wake enable signal
-    gpio_wakeup_enable(WAKE_GPIO, GPIO_INTR_LOW_LEVEL);
+    gpio_wakeup_enable(gpio_data.gpio_num, gpio_data.gpio_intr_type);
     esp_sleep_enable_gpio_wakeup();
 
     // Trigger sleep
@@ -109,7 +128,13 @@ static esp_err_t pm_perform_wake()
     bool success = true;
 
     // Revert wake GPIO settings
-    gpio_wakeup_disable(WAKE_GPIO);
+    gpio_wakeup_disable(gpio_data.gpio_num);
+    if (gpio_data.api.wake) {
+        ret = gpio_data.api.wake(gpio_data.api.ctx);
+        if (ret != ESP_OK) {
+            success = false;
+        }
+    }
 
     if (xSemaphoreTake(pm_mutex, portMAX_DELAY) != pdTRUE)
     {

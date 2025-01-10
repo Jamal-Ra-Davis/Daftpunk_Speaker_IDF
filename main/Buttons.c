@@ -10,6 +10,7 @@
 #include "driver/gpio.h"
 #include "driver/timer.h"
 #include "esp_log.h"
+#include "esp_err.h"
 
 // TODO: Replace logging calls in ISRs with ISR safe logging method
 // May need to keep logging framework to log from ISR
@@ -72,13 +73,6 @@ static void IRAM_ATTR gpio_isr_handler(void *arg)
 int init_buttons()
 {
   esp_err_t ret;
-  gpio_config_t gp_cfg = {
-      .pin_bit_mask = VOLUME_PLUS_GPIO_SEL | VOLUME_MINUS_GPIO_SEL | PAIR_GPIO_SEL,
-      .mode = GPIO_MODE_INPUT,
-      .intr_type = GPIO_INTR_ANYEDGE,
-  };
-  ret = gpio_config(&gp_cfg);
-  ESP_ERROR_CHECK(ret);
 
   vol_data[VOLUME_PLUS].timer = xTimerCreate(timer_names[VOLUME_PLUS], MS_TO_TICKS(VOL_TIMER_PERIOD), pdFALSE, (void *)VOLUME_PLUS, volume_timer_func);
   vol_data[VOLUME_PLUS].pin = VOLUME_PLUS_GPIO_NUM;
@@ -96,6 +90,9 @@ int init_buttons()
     return -1;
   }
 
+  ret = setup_button_gpio_config();
+  ESP_ERROR_CHECK(ret);
+
   ret = gpio_install_isr_service(0);
   ESP_ERROR_CHECK(ret);
 
@@ -106,6 +103,19 @@ int init_buttons()
   ret = gpio_isr_handler_add(PAIR_GPIO_NUM, gpio_isr_handler, (void *)PAIR_GPIO_NUM);
   ESP_ERROR_CHECK(ret);
   return 0;
+}
+
+int setup_button_gpio_config()
+{
+  esp_err_t ret;
+  gpio_config_t gp_cfg = {
+      .pin_bit_mask = VOLUME_PLUS_GPIO_SEL | VOLUME_MINUS_GPIO_SEL | PAIR_GPIO_SEL,
+      .mode = GPIO_MODE_INPUT,
+      .intr_type = GPIO_INTR_ANYEDGE,
+  };
+  ret = gpio_config(&gp_cfg);
+  ESP_ERROR_CHECK(ret);
+  return ret;
 }
 
 static void volume_button_handler(volume_key_t key)

@@ -51,6 +51,8 @@
 #define I2C_MASTER_RX_BUF_DISABLE 0   /*!< I2C master doesn't need buffer */
 #define I2C_MASTER_TIMEOUT_MS 1000
 
+#define WAKE_GPIO GPIO_NUM_34
+
 system_state_t current_state = IDLE_STATE;
 system_state_t prev_state = BOOT_STATE;
 
@@ -116,6 +118,12 @@ static esp_err_t power_led_wake(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
     power_led_enable(true);
+    return ESP_OK;
+}
+static esp_err_t gpio_trigger_wake(void *ctx)
+{
+    ESP_LOGI(MAIN_TAG, "%s", __FUNCTION__);
+    setup_button_gpio_config();
     return ESP_OK;
 }
 
@@ -353,10 +361,13 @@ void app_main(void)
     */
 
     // Init Power Manager
-    if (pm_init() != ESP_OK) {
+    esp_ret = pm_init(WAKE_GPIO, GPIO_INTR_LOW_LEVEL, gpio_trigger_wake, NULL);
+    if (esp_ret != ESP_OK) {
         ESP_LOGE(MAIN_TAG, "Failed to init power manager");
         init_success = false;
     }
+    ESP_ERROR_CHECK(esp_ret);
+
 
     // Register power manager functions
     pm_api_t bt_pm = {
