@@ -24,17 +24,11 @@ int sleep_state_on_enter(state_manager_t *state_manager)
 
     // Block while playing audio as putting system to sleep will halt playback
     play_audio_sfx_blocking(AUDIO_SFX_SLEEP, portMAX_DELAY);
-
-    if (bt_audio_enabled())
-    {
-        bt_audio_deinit();
-    }
     return 0;
 }
 int sleep_state_on_exit(state_manager_t *state_manager)
 {
     ESP_LOGI(TAG, "sleep_state_on_exit");
-    bt_i2s_task_start_up();
     play_audio_sfx(AUDIO_SFX_WAKE, false);
     return 0;
 }
@@ -53,32 +47,16 @@ int sleep_state_update(state_manager_t *state_manager)
         return 0;
     }
 
-    bool exit_sleep = false;
     em_system_event_t event;
     QueueHandle_t event_queue = ctx->event_queue;
     while (xQueueReceive(event_queue, &event, 0) == pdTRUE)
     {
         ESP_LOGI(TAG, "Event Received: %d", (int)event);
-        if (event == PAIR_SHORT_PRESS)
-        {
-            exit_sleep = true;
-        }
     }
-
-    buffer_clear(&display_buffer);
-    buffer_update(&display_buffer);
 
     ESP_LOGI(TAG, "Triggering sleep");
     pm_enter_sleep();
     ESP_LOGI(TAG, "Triggering wake");
     sm_change_state(state_manager, IDLE_STATE_);
-
-    /*
-    if (exit_sleep)
-    {
-        sm_change_state(state_manager, IDLE_STATE_);
-        return 0;
-    }
-    */
     return 0;
 }

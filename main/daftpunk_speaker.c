@@ -53,9 +53,6 @@
 
 #define WAKE_GPIO GPIO_NUM_34
 
-system_state_t current_state = IDLE_STATE;
-system_state_t prev_state = BOOT_STATE;
-
 state_manager_t state_manager;
 
 static esp_err_t bt_sleep(void *ctx)
@@ -127,46 +124,6 @@ static esp_err_t gpio_trigger_wake(void *ctx)
     return ESP_OK;
 }
 
-
-void enter_sleep()
-{
-    ESP_LOGI(MAIN_TAG, "Entering light sleep mode");
-
-    // Setup GPIO wake enable on volume- button
-    gpio_wakeup_enable(GPIO_NUM_34, GPIO_INTR_LOW_LEVEL);
-    esp_sleep_enable_gpio_wakeup();
-
-
-    // Disable bluetooth audio
-    bt_audio_deinit();
-
-    // Disable LED
-    rgb_states_t rgb_state = get_rgb_state();
-    set_rgb_state(RGB_MANUAL);
-    set_rgb_led(0, 0, 0);
-    gpio_set_level(GPIO_NUM_17, 0);
-
-    // Shutdown Audio Amp
-    //gpio_set_level(GPIO_NUM_4, 1);
-
-    // Blank display
-    buffer_clear(&display_buffer);
-    buffer_update(&display_buffer);
-    vTaskDelay(200 / portTICK_PERIOD_MS); // Wait for Vsync and bluetooth stack to settle out
-    esp_light_sleep_start();
-    //esp_deep_sleep_start();
-
-    ESP_LOGI(MAIN_TAG, "Exiting light sleep mode");
-    //gpio_set_level(GPIO_NUM_4, 0);
-    gpio_set_level(GPIO_NUM_17, 1);
-    set_rgb_state(rgb_state);
-
-    gpio_wakeup_disable(GPIO_NUM_34);    
-
-    // Reenable bluetooth audio
-    bt_audio_init();
-}
-
 // TODO: Move volume callbacks to Volume module (may want to rethink how it interacts with Bluetooth audio library)
 void volume_increase_cb(void *ctx)
 {
@@ -196,10 +153,6 @@ static void select_action(void *ctx)
 {
     static bool triple_buffering = true;
     ESP_LOGI(MAIN_TAG, "Select button pressed");
-    if (current_state == SLEEP_STATE)
-    {
-        current_state = IDLE_STATE;
-    }
 
     ESP_LOGI(MAIN_TAG, "%s triple buffering", (triple_buffering) ? "Enabling" : "Disabling");
     buffer_enable_triple_buffering(&display_buffer, triple_buffering);
@@ -220,10 +173,6 @@ static void charge_start_action(void *ctx)
 static void charge_stop_action(void *ctx)
 {
     ESP_LOGI(MAIN_TAG, "Charging stopped");
-}
-static void sleep_timer_func(TimerHandle_t xTimer)
-{
-    current_state = SLEEP_STATE;
 }
 
 static void bt_connected_action(void *ctx)
@@ -499,8 +448,6 @@ void app_main(void)
     // Init TCPShell
     init_tcp_shell_task();
 
-    TimerHandle_t sleep_timer = xTimerCreate("Sleep_Timer", MS_TO_TICKS(15000), pdFALSE, NULL, sleep_timer_func);
-
     if (flash_init() < 0) {
         ESP_LOGW(MAIN_TAG, "Failed to setup flash manager, flash chip may not be connected");
     }
@@ -569,6 +516,10 @@ void app_main(void)
         draw_str(strftime_buf, i, 2, &display_buffer);
         buffer_update(&display_buffer);
         vTaskDelay(30 / portTICK_PERIOD_MS);
+    }
+
+    if (!init_success) {
+        ESP_LOGE(MAIN_TAG, "Initialization Failed");
     }
 
     // Test state manager

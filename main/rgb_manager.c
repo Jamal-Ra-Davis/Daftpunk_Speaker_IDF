@@ -15,8 +15,6 @@ static rgb_states_t cached_state;
 static TaskHandle_t xrgb_manager_task = NULL;
 
 static void rgb_manager_task(void *pvParameters);
-
-static void timer_thread_task(void *pvParameters);
 static void led_low_battery();
 static void _oneshot_blink();
 static void rgb_led_cycle();
@@ -130,7 +128,6 @@ void set_rgb_led(uint8_t r, uint8_t g, uint8_t b)
 
 static void rgb_manager_task(void *pvParameters)
 {
-    static int cnt = 0;
     ESP_LOGI(RGB_TAG, "RGB Manager task started");
     while (1)
     {

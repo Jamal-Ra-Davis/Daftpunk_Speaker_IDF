@@ -17,7 +17,7 @@
 int print_stack_info()
 {
     char buf[256];
-    int size = get_stack_info(buf, sizeof(buf));
+    get_stack_info(buf, sizeof(buf));
     ESP_LOGI(STACK_INFO_TAG, "%s", buf);
     return 0;
 }
