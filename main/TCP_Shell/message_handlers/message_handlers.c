@@ -16,6 +16,7 @@
 #include "driver/adc.h"
 #include "MAX17048.h"
 #include "message_handlers.h"
+#include "Misc/Time_Helpers.h"
 
 #define TAG "TCP_Msg_Handler"
 
@@ -46,6 +47,8 @@ static int gpio_write_handler(tcp_message_t *msg, tcp_message_t *resp, bool *pri
 static int adc_read_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
 static int battery_get_soc_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
 static int battery_get_voltage_handler(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
+static int rtc_get_time(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
+static int rtc_set_time(tcp_message_t *msg, tcp_message_t *resp, bool *print_message);
 
 tcp_shell_handler_t handler_list[NUM_MESSAGE_IDS] = {
     ack_handler, // Misc
@@ -72,6 +75,8 @@ tcp_shell_handler_t handler_list[NUM_MESSAGE_IDS] = {
     adc_read_handler,
     battery_get_soc_handler, // Battery 
     battery_get_voltage_handler,
+    rtc_get_time,           // RTC
+    rtc_set_time,
 };
 
 static uint8_t mem_scratch_buf[16] = {0xDE, 0xAD, 0xBE, 0xEF,
@@ -445,5 +450,32 @@ static int battery_get_voltage_handler(tcp_message_t *msg, tcp_message_t *resp, 
     ESP_LOGI(TAG, "Battery Voltage = %dmV", (int)battery_resp->voltage_mv);
     resp->header.payload_size = sizeof(battery_get_voltage_resp_t);
     resp->header.message_id = BATT_GET_VOLTAGE;
+    return 0;
+}
+static int rtc_get_time(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)
+{
+    ESP_LOGI(TAG, "RTC_GET_TIME MSG_ID");
+    rtc_time_data_t *time_resp = (rtc_time_data_t *)resp->payload;
+    int hour, min, sec;
+    bool am;
+    time_t ts;
+    get_time_components(&ts, &hour, &min, &sec, &am);
+
+    time_resp->hour = (uint32_t)(hour);
+    time_resp->min = (uint32_t)(min);
+    time_resp->sec = (uint32_t)(sec);
+    time_resp->am = (uint32_t)(am);
+
+    ESP_LOGI(TAG, "Time = %02d:%02d:%02d %s", hour, min, sec, am ? "AM" : "PM");
+    resp->header.payload_size = sizeof(rtc_time_data_t);
+    resp->header.message_id = RTC_GET_TIME;
+    return 0;
+}
+static int rtc_set_time(tcp_message_t *msg, tcp_message_t *resp, bool *print_message)
+{
+    ESP_LOGI(TAG, "RTC_SET_TIME MSG_ID");
+    rtc_time_data_t *time_data = (rtc_time_data_t *)msg->payload;
+    set_time_components(time_data->hour, time_data->min, time_data->sec);
+    resp->header.message_id = ACK;
     return 0;
 }

@@ -367,6 +367,31 @@ class TCPShell(cmd.Cmd):
         except Exception as e:
             print(f"Error: {e} - ({type(e).__name__})")
 
+    def do_rtc_get_time(self, arg):
+        'rtc_get_time'
+        try:
+            hour, min, sec, am = socket_test.rtc_get_time(self.tcp_socket)
+            am_pm = "AM" if am else "PM"
+            print(f"{hour}:{min}:{sec} {am_pm}")
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
+    def do_rtc_set_time(self, arg):
+        'rtc_set_time <hour> <min> <sec>'
+        arg_list = arg.split()
+        if (len(arg_list) != 3):
+            print("Error: Invalid input, needs 3 arguments")
+            return
+        hour = int(arg_list[0], 0)
+        min = int(arg_list[1], 0)
+        sec = int(arg_list[2], 0)
+        print(f"{hour}:{min}:{sec}")
+
+        try:
+            socket_test.rtc_set_time(self.tcp_socket, hour, min, sec)
+        except Exception as e:
+            print(f"Error: {e} - ({type(e).__name__})")
+
     def do_exit(self, arg):
         'Stop recording, close the turtle window, and exit:  BYE'
         print('Exiting TCPShell...')

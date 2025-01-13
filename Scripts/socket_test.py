@@ -59,6 +59,8 @@ class MessageID(IntEnum):
     ADC_READ = 21
     BATT_GET_SOC = 22
     BATT_GET_VOLTAGE = 23
+    RTC_GET_TIME = 24
+    RTC_SET_TIME = 25
 
 class PinMode(IntEnum):
     GPIO_MODE_DISABLE = 0
@@ -419,6 +421,40 @@ def exp_gpio_write(sock, bitmask):
     payload.append(bitmask)
     i2c_write(sock, dev_addr, output_port_reg, payload)
 
+def rtc_get_time(sock):
+    print("rtc_get_time")
+    resp = send_message(sock, MessageID.RTC_GET_TIME, None, True)
+    print(resp)
+
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.RTC_GET_TIME):
+        raise Exception("Invalid response")
+    print(resp.payload)
+    hour, min, sec, am = struct.unpack("<BBBB", resp.payload)
+    return (hour, min, sec, am)
+
+def rtc_set_time(sock, hour, min, sec):
+    if (isinstance(hour, int) == False):
+        raise Exception(f"hour ({hour}), must be an integer")
+    if (isinstance(min, int) == False):
+        raise Exception(f"min ({min}), must be an integer")
+    if (isinstance(sec, int) == False):
+        raise Exception(f"min ({sec}), must be an integer")
+    if (hour >= 24):
+        raise Exception(f"hour ({hour}), must be less than 24")
+    if (min >= 60):
+        raise Exception(f"min ({min}), must be less than 60")
+    if (sec >= 60):
+        raise Exception(f"sec ({sec}), must be less than 60")
+
+    message_payload = struct.pack("<BBB", hour, min, sec)
+    resp = send_message(sock, MessageID.RTC_SET_TIME, message_payload, True)
+
+    if (resp):
+        print(resp)
+    if (resp.message_id != MessageID.ACK):
+        raise Exception("Device did not ACK back")
 
 if __name__ == '__main__':
     HOST = "192.168.0.226"

@@ -26,6 +26,8 @@ typedef enum {
     ADC_READ,
     BATT_GET_SOC,
     BATT_GET_VOLTAGE,
+    RTC_GET_TIME,
+    RTC_SET_TIME,
     NUM_MESSAGE_IDS,
 } message_id_t;
 

@@ -44,6 +44,7 @@ static bool shell_active = false;
 static char rx_buffer[TCP_SHELL_BUF_SZ];
 static char tx_buffer[TCP_SHELL_BUF_SZ];
 static int sock_handle = -1;
+static bool wifi_connection = false;
 
 // Function Prototypes
 static uint16_t simple_crc16(uint8_t start, uint8_t *buf, uint32_t len);
@@ -322,6 +323,7 @@ static void tcp_server_task(void *pvParameters)
 #endif
         ESP_LOGI(TCP_SHELL_TASK_TAG, "Socket accepted ip address: %s", addr_str);
         push_event(WIFI_CONNECTED, false);
+        wifi_connection = true;
 
         sock_handle = sock;
         do_retransmit(sock);
@@ -330,6 +332,7 @@ static void tcp_server_task(void *pvParameters)
         shutdown(sock, 0);
         close(sock);
         push_event(WIFI_DISCONNECTED, false);
+        wifi_connection = false;
     }
 
 CLEAN_UP:
@@ -393,4 +396,9 @@ static void tcp_handler_task(void *pvParameters)
     }
     xtcp_handler_task = NULL;
     vTaskDelete(NULL);
+}
+
+bool wifi_connected()
+{
+    return wifi_connection;
 }

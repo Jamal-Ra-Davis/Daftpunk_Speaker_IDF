@@ -95,3 +95,10 @@ typedef struct __attribute__((packed))
 {
     uint32_t voltage_mv;
 } battery_get_voltage_resp_t;
+typedef struct __attribute__((packed))
+{
+    uint8_t hour;
+    uint8_t min;
+    uint8_t sec;
+    uint8_t am;
+} rtc_time_data_t;
