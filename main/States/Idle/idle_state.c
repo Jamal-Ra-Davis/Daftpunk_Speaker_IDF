@@ -7,6 +7,7 @@
 #include "Font.h"
 #include "global_defines.h"
 #include "bt_audio.h"
+#include "TCP_Shell/tcp_shell.h"
 #include "Time_Helpers.h"
 
 #define TAG "IDLE_STATE"
@@ -128,6 +129,7 @@ int idle_state_update(state_manager_t *state_manager)
     bool enter_streaming = false;
     bool enter_menu = false;
     bool bluetooth_connected = bt_audio_connected();
+    bool wifi_connection = wifi_connected();
     bool button_pressed = false;
 
     em_system_event_t event;
@@ -189,7 +191,7 @@ int idle_state_update(state_manager_t *state_manager)
 
     if (idle_timeout && !button_pressed)
     {
-        if (bluetooth_connected)
+        if (bluetooth_connected || wifi_connection)
         {
             sm_change_state(state_manager, DISPLAY_OFF_STATE_);
         }
