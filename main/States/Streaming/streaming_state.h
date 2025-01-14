@@ -1,6 +1,6 @@
 #pragma once
 
-#include "system_states_.h"
+#include "system_states.h"
 
 int streaming_state_init(state_manager_t *state_manager);
 int streaming_state_on_enter(state_manager_t *state_manager);
