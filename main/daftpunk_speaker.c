@@ -20,7 +20,6 @@
 #include "Display_task.h"
 #include "FFT_task.h"
 #include "Font.h"
-#include "system_states.h"
 #include "bt_audio.h"
 #include "i2s_task.h"
 #include "MAX17048.h"
